@@ -1,10 +1,10 @@
 using Blog.Core.Entities;
 using Blog.Core.Settings;
 using Blog.Infrastructure.Data;
-using Blog.Services.Email;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Blog.EmailWorkerService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +37,9 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 // Add Email Sender
 builder.Services.AddTransient<IEmailSender, EmailSender>();
+
+// Add Email Queue Service
+
 
 builder.Services.AddRazorPages();
 builder.Services.AddControllersWithViews();

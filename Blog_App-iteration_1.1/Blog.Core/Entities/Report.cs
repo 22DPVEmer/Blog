@@ -1,9 +1,10 @@
 using System;
-
+using System.ComponentModel.DataAnnotations;
 namespace Blog.Core.Entities
 {
     public class Report
     {
+        [Key]
         public int Id { get; set; }
         public string Reason { get; set; }
         public string Description { get; set; }

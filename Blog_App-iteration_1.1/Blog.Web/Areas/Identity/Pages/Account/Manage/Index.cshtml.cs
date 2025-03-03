@@ -56,8 +56,9 @@ namespace Blog.Web.Areas.Identity.Pages.Account.Manage
             ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
-            [Required]
-            [StringLength(50)]
+            [Required(ErrorMessage = "First name is required.")]
+            [RegularExpression(@"^[a-zA-Z\s]*$", ErrorMessage = "First name cannot contain numbers.")]
+            [StringLength(60, ErrorMessage = "First name cannot exceed 60 characters.")]
             [Display(Name = "First Name")]
             public string FirstName { get; set; }
 
@@ -65,8 +66,9 @@ namespace Blog.Web.Areas.Identity.Pages.Account.Manage
             ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
-            [Required]
-            [StringLength(50)]
+            [Required(ErrorMessage = "Last name is required.")]
+            [RegularExpression(@"^[a-zA-Z\s]*$", ErrorMessage = "Last name cannot contain numbers.")]
+            [StringLength(60, ErrorMessage = "Last name cannot exceed 60 characters.")]
             [Display(Name = "Last Name")]
             public string LastName { get; set; }
 
@@ -74,9 +76,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account.Manage
             ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
-            [Phone]
-            [Display(Name = "Phone number")]
-            public string PhoneNumber { get; set; }
+
         }
 
         private async Task LoadAsync(User user)
@@ -90,7 +90,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account.Manage
             {
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                PhoneNumber = phoneNumber
+
             };
         }
 
@@ -134,16 +134,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account.Manage
                 }
             }
 
-            var phoneNumber = await _userManager.GetPhoneNumberAsync(user);
-            if (Input.PhoneNumber != phoneNumber)
-            {
-                var setPhoneResult = await _userManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
-                if (!setPhoneResult.Succeeded)
-                {
-                    StatusMessage = "Unexpected error when trying to set phone number.";
-                    return RedirectToPage();
-                }
-            }
+    
 
             await _signInManager.RefreshSignInAsync(user);
             StatusMessage = "Your profile has been updated";
