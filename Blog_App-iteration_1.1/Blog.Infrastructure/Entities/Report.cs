@@ -1,6 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
-namespace Blog.Core.Entities
+namespace Blog.Infrastructure.Entities
 {
     public class Report
     {

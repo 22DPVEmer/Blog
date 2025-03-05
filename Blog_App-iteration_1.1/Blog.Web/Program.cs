@@ -1,10 +1,12 @@
-using Blog.Core.Entities;
+using Blog.Infrastructure.Entities;
 using Blog.Core.Settings;
+using Blog.Core.Services;
+using Blog.Core.Interfaces;
 using Blog.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
-using Blog.EmailWorkerService;
+using Blog.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,10 +37,11 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 
-// Add Email Sender
-builder.Services.AddTransient<IEmailSender, EmailSender>();
+// Add Shared Email Queue Service
+builder.Services.AddSingleton<ISharedEmailQueueService>(_ => new SharedEmailQueueService(isServer: false));
 
-// Add Email Queue Service
+// Add Email Sender that uses the queue service
+builder.Services.AddScoped<IEmailSender, EmailSenderService>();
 
 
 builder.Services.AddRazorPages();

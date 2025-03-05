@@ -1,5 +1,5 @@
 using System.Threading.Tasks;
-using Blog.Core.Entities;
+using Blog.Infrastructure.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;

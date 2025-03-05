@@ -1,4 +1,4 @@
-using Blog.Core.Entities;
+using Blog.Infrastructure.Entities;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System;

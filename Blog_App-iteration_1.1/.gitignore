@@ -1,9 +1,17 @@
 # Visual Studio files
 .vs/
+.vscode/
+*.suo
 *.user
 *.userosscache
 *.sln.docstates
 *.userprefs
+.vshistory/
+*.vsidx
+*.vssscc
+.vswp
+*.pubxml
+*.pubxml.user
 
 # Build results
 [Dd]ebug/
@@ -139,4 +147,4 @@ appsettings.Local.json
 *.*~
 project.lock.json
 .DS_Store
-*.pyc 
+*.pyc

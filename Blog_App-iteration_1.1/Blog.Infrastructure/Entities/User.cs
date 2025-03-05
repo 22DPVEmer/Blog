@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using System;
 using System.Collections.Generic;
 
-namespace Blog.Core.Entities
+namespace Blog.Infrastructure.Entities
 {
     public class User : IdentityUser
     {

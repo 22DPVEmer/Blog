@@ -14,8 +14,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blog.Infrastructure", "Blog
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blog.Core", "Blog.Core\Blog.Core.csproj", "{B23C2D9C-E453-4924-A3C6-067FF1776456}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blog.Services", "Blog.Services\Blog.Services.csproj", "{FC2793DA-BDD9-47FB-81F9-D27AAEE54684}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blog.EmailWorkerService", "Blog.EmailWorkerService\Blog.EmailWorkerService.csproj", "{5F28FC76-0F82-4C7B-BD3C-28C2587FEF11}"
 EndProject
 Global
