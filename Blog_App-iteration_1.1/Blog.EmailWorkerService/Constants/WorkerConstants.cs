@@ -12,5 +12,10 @@ namespace Blog.EmailWorkerService.Constants{
         public static readonly string EmailSendFailureMessage = "Failed to send email to {email} with subject: {subject}. Error: {error}";
         public static readonly string QueueProcessingCompleteMessage = "Email queue processing completed. Processed: {processed}, Failed: {failed}, Total: {total}";
         public static readonly string CriticalErrorMessage = "Critical error occurred while processing email queue: {error}";
+
+        public static readonly string[] EmailDateFormats = new[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH" };
+
+        public static readonly string EmailKeyDateSeparator = ":";
+        public static readonly int EmailKeyDateIndex = 2;
     }
 }

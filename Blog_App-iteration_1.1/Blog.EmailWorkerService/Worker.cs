@@ -72,7 +72,7 @@ namespace Blog.EmailWorkerService
 
                 var cutoffTime = DateTime.UtcNow.Subtract(WorkerConstants.EmailRetentionPeriod);
                 _processedEmails.RemoveWhere(key => 
-                    DateTime.TryParseExact(key.Split(':')[2], new[] { "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH" }, System.Globalization.CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedDate) && 
+                    DateTime.TryParseExact(key.Split(WorkerConstants.EmailKeyDateSeparator)[WorkerConstants.EmailKeyDateIndex], WorkerConstants.EmailDateFormats, System.Globalization.CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedDate) && 
                     parsedDate < cutoffTime);
 
                 _logger.LogInformation(

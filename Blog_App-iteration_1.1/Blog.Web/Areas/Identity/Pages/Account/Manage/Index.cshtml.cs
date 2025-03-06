@@ -10,6 +10,7 @@ using Blog.Infrastructure.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Blog.Core.Constants;
 
 namespace Blog.Web.Areas.Identity.Pages.Account.Manage
 {
@@ -52,33 +53,18 @@ namespace Blog.Web.Areas.Identity.Pages.Account.Manage
         /// </summary>
         public class InputModel
         {
-            /// <summary>
-            ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-            ///     directly from your code. This API may change or be removed in future releases.
-            /// </summary>
-            [Required(ErrorMessage = "First name is required.")]
-            [RegularExpression(@"^[a-zA-Z\s]*$", ErrorMessage = "First name cannot contain numbers.")]
-            [StringLength(60, ErrorMessage = "First name cannot exceed 60 characters.")]
+            [Required]
+            [StringLength(Blog.Core.Constants.IdentityConstants.Profile.MaxNameLength, ErrorMessage = Blog.Core.Constants.IdentityConstants.Profile.FirstNameLengthError)]
+            [RegularExpression(Blog.Core.Constants.IdentityConstants.Profile.NameRegexPattern, ErrorMessage = Blog.Core.Constants.IdentityConstants.Profile.NameNumberError)]
             [Display(Name = "First Name")]
             public string FirstName { get; set; }
 
-            /// <summary>
-            ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-            ///     directly from your code. This API may change or be removed in future releases.
-            /// </summary>
-            [Required(ErrorMessage = "Last name is required.")]
-            [RegularExpression(@"^[a-zA-Z\s]*$", ErrorMessage = "Last name cannot contain numbers.")]
-            [StringLength(60, ErrorMessage = "Last name cannot exceed 60 characters.")]
+            [Required]
+            [StringLength(Blog.Core.Constants.IdentityConstants.Profile.MaxNameLength, ErrorMessage = Blog.Core.Constants.IdentityConstants.Profile.LastNameLengthError)]
+            [RegularExpression(Blog.Core.Constants.IdentityConstants.Profile.NameRegexPattern, ErrorMessage = Blog.Core.Constants.IdentityConstants.Profile.LastNameNumberError)]
             [Display(Name = "Last Name")]
             public string LastName { get; set; }
-
-            /// <summary>
-            ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-            ///     directly from your code. This API may change or be removed in future releases.
-            /// </summary>
-
         }
-
         private async Task LoadAsync(User user)
         {
             var userName = await _userManager.GetUserNameAsync(user);
@@ -129,7 +115,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account.Manage
                 var updateResult = await _userManager.UpdateAsync(user);
                 if (!updateResult.Succeeded)
                 {
-                    StatusMessage = "Unexpected error when trying to update profile.";
+                    StatusMessage = Blog.Core.Constants.IdentityConstants.Profile.UpdateError;
                     return RedirectToPage();
                 }
             }
@@ -137,7 +123,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account.Manage
     
 
             await _signInManager.RefreshSignInAsync(user);
-            StatusMessage = "Your profile has been updated";
+            StatusMessage = Blog.Core.Constants.IdentityConstants.Profile.SuccessMessage;
             return RedirectToPage();
         }
     }

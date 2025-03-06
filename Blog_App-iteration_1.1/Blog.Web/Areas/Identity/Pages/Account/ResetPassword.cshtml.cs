@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Blog.Infrastructure.Entities;
+using Blog.Core.Constants;
 
 namespace Blog.Web.Areas.Identity.Pages.Account
 {
@@ -57,7 +58,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
             [Required]
-            [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+            [StringLength(Blog.Core.Constants.IdentityConstants.ResetPassword.MaxPasswordLength, ErrorMessage = Blog.Core.Constants.IdentityConstants.ResetPassword.PasswordValidationError, MinimumLength = Blog.Core.Constants.IdentityConstants.ResetPassword.MinPasswordLength)]
             [DataType(DataType.Password)]
             public string Password { get; set; }
 
@@ -67,7 +68,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account
             /// </summary>
             [DataType(DataType.Password)]
             [Display(Name = "Confirm password")]
-            [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+            [Compare("Password", ErrorMessage = Blog.Core.Constants.IdentityConstants.ResetPassword.PasswordMismatchError)]
             public string ConfirmPassword { get; set; }
 
             /// <summary>
@@ -82,7 +83,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account
         {
             if (code == null)
             {
-                return BadRequest("A code must be supplied for password reset.");
+                return BadRequest(Blog.Core.Constants.IdentityConstants.ResetPassword.CodeRequiredMessage);
             }
 
             Input = new InputModel
@@ -103,14 +104,14 @@ namespace Blog.Web.Areas.Identity.Pages.Account
             if (user == null)
             {
                 // Don't reveal that the user does not exist
-                StatusMessage = "Your password has been reset.";
+                StatusMessage = Blog.Core.Constants.IdentityConstants.ResetPassword.SuccessMessage;
                 return Page();
             }
 
             var result = await _userManager.ResetPasswordAsync(user, Input.Code, Input.Password);
             if (result.Succeeded)
             {
-                StatusMessage = "Your password has been reset. Please login with your new password.";
+                StatusMessage = Blog.Core.Constants.IdentityConstants.ResetPassword.LoginMessage;
                 return RedirectToPage("./Login");
             }
 

@@ -75,9 +75,9 @@ namespace Blog.Web.Areas.Identity.Pages.Account
             ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
-            [Required(ErrorMessage = "First name is required.")]
-            [RegularExpression(@"^[a-zA-Z\s]*$", ErrorMessage = "First name cannot contain numbers.")]
-            [StringLength(60, ErrorMessage = "First name cannot exceed 60 characters.")]
+            [Required(ErrorMessage = Blog.Core.Constants.IdentityConstants.Registration.FirstNameRequired)]
+            [RegularExpression(Blog.Core.Constants.IdentityConstants.Registration.NameRegexPattern, ErrorMessage = Blog.Core.Constants.IdentityConstants.Registration.FirstNameNumberError)]
+            [StringLength(Blog.Core.Constants.IdentityConstants.Registration.MaxNameLength, ErrorMessage = Blog.Core.Constants.IdentityConstants.Registration.FirstNameLengthError)]
             [Display(Name = "First Name")]
             public string FirstName { get; set; }
 
@@ -85,9 +85,9 @@ namespace Blog.Web.Areas.Identity.Pages.Account
             ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
-            [Required(ErrorMessage = "Last name is required.")]
-            [RegularExpression(@"^[a-zA-Z\s]*$", ErrorMessage = "Last name cannot contain numbers.")]
-            [StringLength(60, ErrorMessage = "Last name cannot exceed 60 characters.")]
+            [Required(ErrorMessage = Blog.Core.Constants.IdentityConstants.Registration.LastNameRequired)]
+            [RegularExpression(Blog.Core.Constants.IdentityConstants.Registration.NameRegexPattern, ErrorMessage = Blog.Core.Constants.IdentityConstants.Registration.LastNameNumberError)]
+            [StringLength(Blog.Core.Constants.IdentityConstants.Registration.MaxNameLength, ErrorMessage = Blog.Core.Constants.IdentityConstants.Registration.LastNameLengthError)]
             [Display(Name = "Last Name")]
             public string LastName { get; set; }
 
@@ -105,7 +105,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account
             ///     directly from your code. This API may change or be removed in future releases.
             /// </summary>
             [Required]
-            [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+            [StringLength(Blog.Core.Constants.IdentityConstants.Registration.MaxPasswordLength, ErrorMessage = Blog.Core.Constants.IdentityConstants.Registration.PasswordLengthError, MinimumLength = Blog.Core.Constants.IdentityConstants.Registration.MinPasswordLength)]
             [DataType(DataType.Password)]
             [Display(Name = "Password")]
             public string Password { get; set; }
@@ -116,7 +116,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account
             /// </summary>
             [DataType(DataType.Password)]
             [Display(Name = "Confirm password")]
-            [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+            [Compare("Password", ErrorMessage = Blog.Core.Constants.IdentityConstants.Registration.PasswordMismatchError)]
             public string ConfirmPassword { get; set; }
         }
 
@@ -147,10 +147,10 @@ namespace Blog.Web.Areas.Identity.Pages.Account
 
                 if (result.Succeeded)
                 {
-                    _logger.LogInformation("User created a new account with password.");
+                    _logger.LogInformation(Blog.Core.Constants.IdentityConstants.Registration.AccountCreatedMessage);
 
                     // Add user to default "User" role
-                    await _userManager.AddToRoleAsync(user, "User");
+                    await _userManager.AddToRoleAsync(user, Blog.Core.Constants.IdentityConstants.Registration.DefaultRole);
 
                     var userId = await _userManager.GetUserIdAsync(user);
                     var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
@@ -161,9 +161,8 @@ namespace Blog.Web.Areas.Identity.Pages.Account
                         values: new { area = "Identity", userId = userId, code = code, returnUrl = returnUrl },
                         protocol: Request.Scheme);
 
-                    await _emailSender.SendEmailAsync(Input.Email, "Confirm your email",
-                        $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
-
+                    await _emailSender.SendEmailAsync(Input.Email, Blog.Core.Constants.IdentityConstants.Registration.EmailConfirmationSubject,
+                        string.Format(Blog.Core.Constants.IdentityConstants.Registration.EmailConfirmationMessage, HtmlEncoder.Default.Encode(callbackUrl)));
                     if (_userManager.Options.SignIn.RequireConfirmedAccount)
                     {
                         return RedirectToPage("RegisterConfirmation", new { email = Input.Email, returnUrl = returnUrl });

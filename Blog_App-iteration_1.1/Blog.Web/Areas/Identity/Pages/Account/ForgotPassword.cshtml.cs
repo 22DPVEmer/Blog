@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Blog.Infrastructure.Entities;
 using Blog.Core.Services;
 using Blog.Core.Interfaces;
+using Blog.Core.Constants;
 
 namespace Blog.Web.Areas.Identity.Pages.Account
 {
@@ -67,7 +68,7 @@ namespace Blog.Web.Areas.Identity.Pages.Account
                 if (user == null)
                 {
                     // Don't reveal that the user does not exist
-                    StatusMessage = "Password reset link has been sent. Please check your email.";
+                    StatusMessage = EmailConstants.PasswordResetLinkSent;
                     return Page();
                 }
 
@@ -76,17 +77,17 @@ namespace Blog.Web.Areas.Identity.Pages.Account
                 var code = await _userManager.GeneratePasswordResetTokenAsync(user);
                 code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
                 var callbackUrl = Url.Page(
-                    "/Account/ResetPassword",
+                    EmailConstants.ResetPasswordPage,
                     pageHandler: null,
-                    values: new { area = "Identity", code },
+                    values: new { area = EmailConstants.IdentityArea, code },
                     protocol: Request.Scheme);
 
                 _emailQueueService.QueueEmail(
                     Input.Email,
-                    "Reset Password",
-                    $"Please reset your password by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+                    EmailConstants.ResetPasswordSubject,
+                    string.Format(EmailConstants.ResetPasswordTemplate, HtmlEncoder.Default.Encode(callbackUrl)));
 
-                StatusMessage = "Password reset link has been sent. Please check your email.";
+                StatusMessage = EmailConstants.PasswordResetLinkSent;
                 return Page();
             }
 
