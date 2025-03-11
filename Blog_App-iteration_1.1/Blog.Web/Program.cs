@@ -43,9 +43,20 @@ builder.Services.AddSingleton<ISharedEmailQueueService>(_ => new SharedEmailQueu
 // Add Email Sender that uses the queue service
 builder.Services.AddScoped<IEmailSender, EmailSenderService>();
 
+// Add Firebase Storage Service
+builder.Services.AddScoped<IFirebaseStorageService, FirebaseStorageService>();
 
 builder.Services.AddRazorPages();
 builder.Services.AddControllersWithViews();
+
+// Add Session Configuration
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
 
 var app = builder.Build();
 
@@ -64,6 +75,9 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Enable session
+app.UseSession();
 
 app.MapControllerRoute(
     name: "default",
