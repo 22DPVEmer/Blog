@@ -1,11 +1,14 @@
 @using Microsoft.AspNetCore.Identity
 @using Blog.Infrastructure.Entities
+@using System
 @model Blog.Infrastructure.Entities.Article
 @inject UserManager<User> UserManager
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 @{
     ViewData["Title"] = "Create Article";
     var currentUser = await UserManager.GetUserAsync(User);
+    var tinyMceApiKey = Configuration["TinyMCE:ApiKey"];
 }
 
 <style>
@@ -171,26 +174,8 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-    <script src="https://cdn.tiny.cloud/1/q14zvpfr6i2lsveawxovqvcyooy43cd023rpykgl340ybdw0/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <script src="https://cdn.tiny.cloud/1/@tinyMceApiKey/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
     <script type="module">
-        // Import Firebase
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
-        import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-storage.js";
-
-        // Initialize Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDWy-qDRV1R42f2ogWMBgMb2rwfwbdnVao",
-            authDomain: "blogapp-248d7.firebaseapp.com",
-            projectId: "blogapp-248d7",
-            storageBucket: "blogapp-248d7.firebasestorage.app",
-            messagingSenderId: "341678311816",
-            appId: "1:341678311816:web:2132afbc9cb587bc91d23d",
-            measurementId: "G-ZSGJ5J1J28"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const storage = getStorage(app);
-
         // Add total size tracking
         let totalSize = 0;
         const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10MB in bytes

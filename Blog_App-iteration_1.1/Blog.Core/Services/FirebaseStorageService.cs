@@ -28,13 +28,13 @@ namespace Blog.Core.Services
         public FirebaseStorageService(IConfiguration configuration, ILogger<FirebaseStorageService> logger)
         {
             _logger = logger;
-            _bucketName = "blogapp-248d7.firebasestorage.app";
+            _bucketName = "blog-ed498.firebasestorage.app";
             _logger.LogInformation("Initializing FirebaseStorageService with bucket: {BucketName}", _bucketName);
 
             try
             {
                 // Find the credentials file
-                var credentialsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "blogapp-248d7-firebase-adminsdk-fbsvc-167eb1a680.json");
+                var credentialsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "blog-ed498-firebase-adminsdk-fbsvc-218aa95c14.json");
                 _logger.LogInformation("Looking for credentials at: {CredentialsPath}", credentialsPath);
                 
                 if (!File.Exists(credentialsPath))
@@ -42,21 +42,21 @@ namespace Blog.Core.Services
                     // Try to find it in the project directory
                     var projectDir = Directory.GetCurrentDirectory();
                     _logger.LogInformation("Credentials not found. Trying project directory: {ProjectDir}", projectDir);
-                    credentialsPath = Path.Combine(projectDir, "blogapp-248d7-firebase-adminsdk-fbsvc-167eb1a680.json");
+                    credentialsPath = Path.Combine(projectDir, "blog-ed498-firebase-adminsdk-fbsvc-218aa95c14.json");
                     
                     if (!File.Exists(credentialsPath))
                     {
                         // Try one directory up (for web projects)
                         var parentDir = Directory.GetParent(projectDir)?.FullName;
                         _logger.LogInformation("Credentials not found. Trying parent directory: {ParentDir}", parentDir);
-                        credentialsPath = Path.Combine(parentDir, "Blog.Core", "blogapp-248d7-firebase-adminsdk-fbsvc-167eb1a680.json");
+                        credentialsPath = Path.Combine(parentDir, "Blog.Core", "blog-ed498-firebase-adminsdk-fbsvc-218aa95c14.json");
                         
                         // Try in the wwwroot folder
                         if (!File.Exists(credentialsPath))
                         {
                             var wwwrootPath = Path.Combine(projectDir, "wwwroot");
                             _logger.LogInformation("Credentials not found. Trying wwwroot directory: {WwwrootPath}", wwwrootPath);
-                            credentialsPath = Path.Combine(wwwrootPath, "blogapp-248d7-firebase-adminsdk-fbsvc-167eb1a680.json");
+                            credentialsPath = Path.Combine(wwwrootPath, "blog-ed498-firebase-adminsdk-fbsvc-218aa95c14.json");
                         }
                     }
                 }
@@ -79,7 +79,7 @@ namespace Blog.Core.Services
                     var firebaseConfig = new AppOptions()
                     {
                         Credential = _credential,
-                        ProjectId = "blogapp-248d7"
+                        ProjectId = "blog-ed498"
                     };
 
                     _firebaseApp = FirebaseApp.Create(firebaseConfig);
