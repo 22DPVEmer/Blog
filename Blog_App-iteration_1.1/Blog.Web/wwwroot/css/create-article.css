@@ -1,0 +1,79 @@
+.drag-drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.drag-drop-zone:hover, .drag-drop-zone.dragover {
+    border-color: #0d6efd;
+    background: #e9ecef;
+}
+
+.drag-drop-zone .icon {
+    font-size: 2rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.image-preview {
+    max-height: 300px;
+    width: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+    display: none;
+}
+
+.character-count {
+    font-size: 0.875rem;
+    color: #6c757d;
+    text-align: right;
+}
+
+.form-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 2rem;
+}
+
+.progress {
+    height: 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.image-preview-container {
+    position: relative;
+    margin-top: 1rem;
+}
+
+.image-actions {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.change-image-btn, .remove-image-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.875rem;
+}
+
+.change-image-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.remove-image-btn:hover {
+    background: #dc3545;
+    color: white;
+}
