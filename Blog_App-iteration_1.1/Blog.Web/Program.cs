@@ -1,12 +1,13 @@
 using Blog.Infrastructure.Entities;
 using Blog.Core.Settings;
-using Blog.Core.Services;
 using Blog.Core.Interfaces;
+using Blog.Core.Services;
 using Blog.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Blog.Web.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +46,7 @@ builder.Services.AddScoped<IEmailSender, EmailSenderService>();
 
 // Add Firebase Storage Service
 builder.Services.AddScoped<IFirebaseStorageService, FirebaseStorageService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 
 builder.Services.AddRazorPages();
 builder.Services.AddControllersWithViews();
@@ -57,6 +59,8 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });
+
+builder.Services.AddScoped<IArticleService, ArticleService>();
 
 var app = builder.Build();
 

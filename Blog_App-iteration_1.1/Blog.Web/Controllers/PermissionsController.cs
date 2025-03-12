@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using System;
 using Blog.Web.Models;
+using Blog.Core.Interfaces;
 
 namespace Blog.Web.Controllers
 {
@@ -15,59 +16,36 @@ namespace Blog.Web.Controllers
     [Route("[controller]")]
     public class PermissionsController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IPermissionService _permissionService;
         private readonly UserManager<User> _userManager;
 
         public PermissionsController(
-            ApplicationDbContext context,
+            IPermissionService permissionService,
             UserManager<User> userManager)
         {
-            _context = context;
+            _permissionService = permissionService;
             _userManager = userManager;
         }
 
-        // GET: Permissions
         [HttpGet]
         public async Task<IActionResult> Index()
         {
             var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-            {
-                return NotFound();
-            }
+            if (user == null) return NotFound();
 
-            // Set ViewBag properties before any conditional logic
             ViewBag.IsAdmin = user.IsAdmin;
             ViewBag.CanWriteArticles = user.CanWriteArticles;
 
-            // Check if user is admin using IsAdmin property
-            if (user.IsAdmin)
+            var requests = user.IsAdmin
+                ? await _permissionService.GetAdminPermissionRequestsAsync()
+                : await _permissionService.GetUserPermissionRequestsAsync(user.Id);
+
+            if (!user.IsAdmin && user.CanWriteArticles)
             {
-                // Get all permission requests for admin view
-                var requests = await _context.PermissionRequests
-                    .Include(pr => pr.User)
-                    .Include(pr => pr.ProcessedByUser)
-                    .OrderByDescending(pr => pr.RequestedAt)
-                    .ToListAsync();
-
-                return View(requests);
+                TempData["InfoMessage"] = "You already have permission to write articles.";
             }
-            else
-            {
-                if (user.CanWriteArticles)
-                {
-                    TempData["InfoMessage"] = "You already have permission to write articles.";
-                }
 
-                // Get user's permission requests for regular user view
-                var requests = await _context.PermissionRequests
-                    .Include(pr => pr.ProcessedByUser)
-                    .Where(pr => pr.UserId == user.Id)
-                    .OrderByDescending(pr => pr.RequestedAt)
-                    .ToListAsync();
-
-                return View(requests);
-            }
+            return View(requests);
         }
 
         // GET: Permissions/Request
@@ -100,31 +78,20 @@ namespace Blog.Web.Controllers
                 return NotFound();
             }
 
-            // Check if user already has permission
             if (user.CanWriteArticles)
             {
                 TempData["InfoMessage"] = "You already have permission to write articles.";
                 return RedirectToAction(nameof(Index));
             }
 
-            // Check if there's already a pending request
-            var pendingRequest = await _context.PermissionRequests
-                .AnyAsync(pr => pr.UserId == user.Id && pr.Status == PermissionRequestStatus.Pending);
-
-            if (pendingRequest)
+            var hasPendingRequest = await _permissionService.HasPendingRequestAsync(user.Id);
+            if (hasPendingRequest)
             {
                 ModelState.AddModelError("", "You already have a pending request.");
                 return View();
             }
 
-            var request = new PermissionRequest
-            {
-                UserId = user.Id,
-                Reason = reason
-            };
-
-            _context.PermissionRequests.Add(request);
-            await _context.SaveChangesAsync();
+            await _permissionService.CreatePermissionRequestAsync(user.Id, reason);
 
             TempData["SuccessMessage"] = "Your request has been submitted successfully.";
             return RedirectToAction(nameof(Index));
@@ -141,33 +108,10 @@ namespace Blog.Web.Controllers
                 return Forbid();
             }
 
-            var request = await _context.PermissionRequests
-                .Include(pr => pr.User)
-                .FirstOrDefaultAsync(pr => pr.Id == id);
-
-            if (request == null)
-            {
-                return NotFound();
-            }
-
-            request.ProcessedAt = DateTime.UtcNow;
-            request.ProcessedByUserId = admin.Id;
-            request.Status = approved ? PermissionRequestStatus.Approved : PermissionRequestStatus.Rejected;
-
-            if (!approved && !string.IsNullOrWhiteSpace(rejectionReason))
-            {
-                request.RejectionReason = rejectionReason;
-            }
-
-            if (approved)
-            {
-                request.User.CanWriteArticles = true;
-            }
-
-            await _context.SaveChangesAsync();
+            await _permissionService.ProcessPermissionRequestAsync(id, admin.Id, approved, rejectionReason);
 
             TempData["SuccessMessage"] = $"Request has been {(approved ? "approved" : "rejected")} successfully.";
             return RedirectToAction(nameof(Index));
         }
     }
-} 
+}

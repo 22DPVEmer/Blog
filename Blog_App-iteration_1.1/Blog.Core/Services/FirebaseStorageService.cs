@@ -7,16 +7,11 @@ using Google.Cloud.Storage.V1;
 using Google.Apis.Auth.OAuth2;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Blog.Core.Interfaces;
 using Google.Apis.Storage.v1.Data;
 
 namespace Blog.Core.Services
 {
-    public interface IFirebaseStorageService
-    {
-        Task<string> UploadImageAsync(IFormFile file, string subFolder = "");
-        Task<string> UploadProfilePictureAsync(IFormFile file);
-        Task DeleteImageAsync(string imageUrl);
-    }
 
     public class FirebaseStorageService : IFirebaseStorageService
     {

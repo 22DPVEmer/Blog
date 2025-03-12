@@ -14,6 +14,7 @@ using Blog.Core.Constants;
 using Microsoft.AspNetCore.Http;
 using Blog.Core.Services;
 using Microsoft.Extensions.Logging;
+using Blog.Core.Interfaces;
 
 namespace Blog.Web.Areas.Identity.Pages.Account.Manage
 {

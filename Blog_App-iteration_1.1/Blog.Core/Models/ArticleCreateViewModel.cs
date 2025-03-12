@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
-namespace Blog.Web.Models
+namespace Blog.Core.Models
 {
     public class ArticleCreateViewModel
     {
