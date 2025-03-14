@@ -25,16 +25,27 @@ namespace Blog.Web.Controllers
         }
 
         // GET: Articles - Allow all users to view articles
-        public async Task<IActionResult> Index([FromQuery] string searchTerm, [FromQuery] string dateFilter)
+        public async Task<IActionResult> Index([FromQuery] string searchTerm, [FromQuery] string dateFilterStr = "All")
         {
             try
             {
+                // Parse the date filter string to enum, defaulting to All if parsing fails
+                DateFilter dateFilter = DateFilter.All;
+                if (!string.IsNullOrEmpty(dateFilterStr))
+                {
+                    if (Enum.TryParse<DateFilter>(dateFilterStr, true, out DateFilter parsedFilter))
+                    {
+                        dateFilter = parsedFilter;
+                    }
+                }
+
                 var articles = await _articleService.GetPublishedArticlesAsync(searchTerm, dateFilter);
+                ViewBag.CurrentDateFilter = dateFilterStr; // Keep the current filter for the view
                 return View(articles);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, LogConstants.Articles.RetrieveError, searchTerm, dateFilter);
+                _logger.LogError(ex, LogConstants.Articles.RetrieveError, searchTerm, dateFilterStr);
                 TempData["ErrorMessage"] = "An error occurred while retrieving articles.";
                 return RedirectToAction("Error", "Home");
             }
@@ -207,15 +218,12 @@ namespace Blog.Web.Controllers
         {
             try
             {
-                var result = await _articleService.UploadImageAsync(file, isFeatured);
+                var imageUrl = await _articleService.UploadImageAsync(file, isFeatured);
                 
-                // Since the image is now processed in the background, we return a success message
-                // with a placeholder or temporary URL
                 return Ok(new { 
-                    message = "Image upload has been queued for processing",
-                    status = "processing",
-                    // You might want to generate a temporary URL or use a placeholder image
-                    imageUrl = "/images/placeholder-processing.jpg" 
+                    message = "Image uploaded successfully",
+                    status = "success",
+                    imageUrl = imageUrl
                 });
             }
             catch (Exception ex)

@@ -38,7 +38,7 @@ namespace Blog.Core.Services
             _fileSettings = fileSettings.Value;
         }
 
-        public async Task<IEnumerable<Article>> GetPublishedArticlesAsync(string searchTerm, string dateFilter)
+        public async Task<IEnumerable<Article>> GetPublishedArticlesAsync(string searchTerm, DateFilter dateFilter)
         {
             var query = _context.Articles
                 .Include(a => a.User)
@@ -59,20 +59,24 @@ namespace Blog.Core.Services
             var today = DateTime.UtcNow.Date;
             switch (dateFilter)
             {
-                case "today":
+                case DateFilter.Today:
                     query = query.Where(a => a.PublishedAt.Value.Date == today);
                     break;
-                case "week":
+                case DateFilter.Week:
                     var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
                     query = query.Where(a => a.PublishedAt.Value.Date >= startOfWeek);
                     break;
-                case "month":
+                case DateFilter.Month:
                     var startOfMonth = new DateTime(today.Year, today.Month, 1);
                     query = query.Where(a => a.PublishedAt.Value.Date >= startOfMonth);
                     break;
-                case "year":
+                case DateFilter.Year:
                     var startOfYear = new DateTime(today.Year, 1, 1);
                     query = query.Where(a => a.PublishedAt.Value.Date >= startOfYear);
+                    break;
+                case DateFilter.All:
+                default:
+                    // No date filter applied
                     break;
             }
 
@@ -88,20 +92,11 @@ namespace Blog.Core.Services
 
         public async Task<Article> CreateArticleAsync(ArticleCreateViewModel model, User user)
         {
-            // Handle featured image upload if provided
-            string featuredImageUrl = null;
-            if (model.FeaturedImageFile != null && model.FeaturedImageFile.Length > 0)
-            {
-                ValidateImageFile(model.FeaturedImageFile);
-                featuredImageUrl = await _firebaseStorageService.UploadImageAsync(model.FeaturedImageFile, "featured");
-            }
-
             var article = new Article
             {
                 Title = model.Title,
                 Content = model.Content,
                 Intro = model.Intro,
-                FeaturedImage = featuredImageUrl,
                 UserId = user.Id,
                 CreatedAt = DateTime.UtcNow,
                 IsPublished = true,
@@ -110,6 +105,19 @@ namespace Blog.Core.Services
 
             _context.Articles.Add(article);
             await _context.SaveChangesAsync();
+
+            // Handle featured image upload if provided
+            if (model.FeaturedImageFile != null && model.FeaturedImageFile.Length > 0)
+            {
+                ValidateImageFile(model.FeaturedImageFile);
+                // Queue the featured image upload and wait for the URL
+                article.FeaturedImage = await _imageProcessingService.QueueImageUploadAsync(
+                    model.FeaturedImageFile, 
+                    "featured", 
+                    true,
+                    article.Id);
+                await _context.SaveChangesAsync();
+            }
 
             return article;
         }
@@ -128,13 +136,13 @@ namespace Blog.Core.Services
             }
 
             // Handle featured image upload if provided
-            string featuredImageUrl = existingArticle.FeaturedImage;
             if (model.FeaturedImageFile != null && model.FeaturedImageFile.Length > 0)
             {
                 ValidateImageFile(model.FeaturedImageFile);
 
                 // Delete old featured image if it exists
-                if (!string.IsNullOrEmpty(existingArticle.FeaturedImage))
+                if (!string.IsNullOrEmpty(existingArticle.FeaturedImage) && 
+                    existingArticle.FeaturedImage != "processing")
                 {
                     try
                     {
@@ -147,15 +155,18 @@ namespace Blog.Core.Services
                     }
                 }
 
-                // Upload new image to Firebase Storage
-                featuredImageUrl = await _firebaseStorageService.UploadImageAsync(model.FeaturedImageFile, "featured");
+                // Queue the new featured image upload and wait for the URL
+                existingArticle.FeaturedImage = await _imageProcessingService.QueueImageUploadAsync(
+                    model.FeaturedImageFile, 
+                    "featured", 
+                    true,
+                    existingArticle.Id);
             }
 
             // Update article properties
             existingArticle.Title = model.Title;
             existingArticle.Content = model.Content;
             existingArticle.Intro = model.Intro;
-            existingArticle.FeaturedImage = featuredImageUrl;
             existingArticle.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -201,10 +212,8 @@ namespace Blog.Core.Services
             // Determine subfolder based on image type
             string subfolder = isFeatured ? "featured" : "content";
 
-            // Queue the image upload to be processed in the background
-            await _imageProcessingService.QueueImageUploadAsync(file, subfolder, isFeatured);
-           
-            return "processing";
+            // Queue the image upload and wait for the URL
+            return await _imageProcessingService.QueueImageUploadAsync(file, subfolder, isFeatured);
         }
 
         private void ValidateImageFile(IFormFile file)

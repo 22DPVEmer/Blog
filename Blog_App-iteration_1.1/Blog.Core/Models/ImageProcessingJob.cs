@@ -9,7 +9,8 @@ namespace Blog.Core.Models
         public string SubFolder { get; set; }
         public bool IsFeatured { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public string CallbackUrl { get; set; }
         public int? ArticleId { get; set; }
+        public string ImageType { get; set; } // "featured" or "content"
+        public Action<string, int?> OnComplete { get; set; }
     } 
 }
