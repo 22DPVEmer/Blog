@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Blog.Web.Services;
-
+using Blog.Core.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +47,15 @@ builder.Services.AddScoped<IEmailSender, EmailSenderService>();
 // Add Firebase Storage Service
 builder.Services.AddScoped<IFirebaseStorageService, FirebaseStorageService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+
+// Add Image Processing Background Service
+builder.Services.AddSingleton<ImageProcessingBackgroundService>();
+builder.Services.AddHostedService(
+    provider => provider.GetRequiredService<ImageProcessingBackgroundService>());
+
+// Add FileSettings configuration
+builder.Services.Configure<FileSettings>(
+    builder.Configuration.GetSection("FileSettings"));
 
 builder.Services.AddRazorPages();
 builder.Services.AddControllersWithViews();

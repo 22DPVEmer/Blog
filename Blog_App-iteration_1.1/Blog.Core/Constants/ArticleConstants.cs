@@ -2,8 +2,12 @@ namespace Blog.Core.Constants
 {
     public static class ArticleConstants
     {
-        public const int MaxTotalSize = 10 * 1024 * 1024; // 10MB in bytes
-        public const string TotalSizeKey = "ArticleTotalSize";
+        public static class FileSize
+        {
+            public const int MaxTotalSize = 10 * 1024 * 1024; // 10MB in bytes
+            public const int MaxIndividualFileSize = 10 * 1024 * 1024; // 10MB in bytes
+            public const string TotalSizeKey = "ArticleTotalSize";
+        }
         
         public static class Messages
         {
@@ -14,6 +18,8 @@ namespace Blog.Core.Constants
             public const string UserNotFound = "User not found";
             public const string ArticleNotFound = "Article not found";
             public const string ImageUploadError = "Error uploading image";
+            public const string FileSizeExceeded = "File size exceeds the maximum limit of {0}MB";
+            public const string TotalSizeExceeded = "Total size exceeds the maximum limit of {0}MB";
         }
     }
 }

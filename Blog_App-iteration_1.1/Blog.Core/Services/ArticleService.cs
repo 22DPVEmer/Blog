@@ -7,7 +7,11 @@ using Microsoft.Extensions.Logging;
 using Blog.Infrastructure.Entities;
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
-
+using Microsoft.Extensions.Options;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Blog.Core.Constants;
 
 namespace Blog.Core.Services
 {
@@ -15,14 +19,23 @@ namespace Blog.Core.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IFirebaseStorageService _firebaseStorageService;
+        private readonly ImageProcessingBackgroundService _imageProcessingService;
         private readonly ILogger<ArticleService> _logger;
-        private const int MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+        private readonly FileSettings _fileSettings;
 
-        public ArticleService(ApplicationDbContext context, IFirebaseStorageService firebaseStorageService, ILogger<ArticleService> logger)
+
+        public ArticleService(
+            ApplicationDbContext context,
+            IFirebaseStorageService firebaseStorageService,
+            ImageProcessingBackgroundService imageProcessingService,
+            ILogger<ArticleService> logger,
+            IOptions<FileSettings> fileSettings)
         {
             _context = context;
             _firebaseStorageService = firebaseStorageService;
+            _imageProcessingService = imageProcessingService;
             _logger = logger;
+            _fileSettings = fileSettings.Value;
         }
 
         public async Task<IEnumerable<Article>> GetPublishedArticlesAsync(string searchTerm, string dateFilter)
@@ -79,20 +92,7 @@ namespace Blog.Core.Services
             string featuredImageUrl = null;
             if (model.FeaturedImageFile != null && model.FeaturedImageFile.Length > 0)
             {
-                // Check file type
-                var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
-                if (!allowedTypes.Contains(model.FeaturedImageFile.ContentType))
-                {
-                    throw new InvalidOperationException("Invalid file type. Only images are allowed.");
-                }
-
-                // Check file size (limit to 5MB)
-                if (model.FeaturedImageFile.Length > 5 * 1024 * 1024)
-                {
-                    throw new InvalidOperationException("File size exceeds the 5MB limit.");
-                }
-
-                // Upload to Firebase Storage
+                ValidateImageFile(model.FeaturedImageFile);
                 featuredImageUrl = await _firebaseStorageService.UploadImageAsync(model.FeaturedImageFile, "featured");
             }
 
@@ -131,18 +131,7 @@ namespace Blog.Core.Services
             string featuredImageUrl = existingArticle.FeaturedImage;
             if (model.FeaturedImageFile != null && model.FeaturedImageFile.Length > 0)
             {
-                // Check file type
-                var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
-                if (!allowedTypes.Contains(model.FeaturedImageFile.ContentType))
-                {
-                    throw new InvalidOperationException("Invalid file type. Only images are allowed.");
-                }
-
-                // Check file size (limit to 5MB)
-                if (model.FeaturedImageFile.Length > 5 * 1024 * 1024)
-                {
-                    throw new InvalidOperationException("File size exceeds the 5MB limit.");
-                }
+                ValidateImageFile(model.FeaturedImageFile);
 
                 // Delete old featured image if it exists
                 if (!string.IsNullOrEmpty(existingArticle.FeaturedImage))
@@ -207,30 +196,38 @@ namespace Blog.Core.Services
 
         public async Task<string> UploadImageAsync(IFormFile file, bool isFeatured)
         {
-            if (file == null || file.Length == 0)
-            {
-                throw new InvalidOperationException("No file was uploaded.");
-            }
-
-            // Check individual file size (5MB limit)
-            const int maxFileSize = 5 * 1024 * 1024; // 5MB in bytes
-            if (file.Length > maxFileSize)
-            {
-                throw new InvalidOperationException("Individual file size exceeds the maximum limit of 5MB.");
-            }
-
-            // Check file type
-            var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
-            if (!allowedTypes.Contains(file.ContentType))
-            {
-                throw new InvalidOperationException("Invalid file type. Only JPG, PNG, GIF, and WEBP images are allowed.");
-            }
+            ValidateImageFile(file);
 
             // Determine subfolder based on image type
             string subfolder = isFeatured ? "featured" : "content";
 
-            // Upload to Firebase Storage using the server-side service
-            return await _firebaseStorageService.UploadImageAsync(file, subfolder);
+            // Queue the image upload to be processed in the background
+            await _imageProcessingService.QueueImageUploadAsync(file, subfolder, isFeatured);
+           
+            return "processing";
+        }
+
+        private void ValidateImageFile(IFormFile file)
+        {
+            // Check if file is null or empty
+            if (file == null || file.Length == 0)
+            {
+                throw new ArgumentException("No file was uploaded.");
+            }
+
+            // Check file size
+            if (file.Length > ArticleConstants.FileSize.MaxIndividualFileSize)
+            {
+                throw new ArgumentException(string.Format(
+                    ArticleConstants.Messages.FileSizeExceeded, 
+                    ArticleConstants.FileSize.MaxIndividualFileSize / (1024 * 1024)));
+            }
+
+            // Check file type
+            if (!_fileSettings.AllowedImageTypes.Contains(file.ContentType))
+            {
+                throw new ArgumentException($"Invalid file type. Allowed types are: {string.Join(", ", _fileSettings.AllowedImageTypes)}");
+            }
         }
     }
 }

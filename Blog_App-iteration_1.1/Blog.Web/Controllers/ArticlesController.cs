@@ -6,16 +6,13 @@ using Blog.Core.Interfaces;
 using Blog.Core.Models;
 using Blog.Core.Constants;
 
-
 namespace Blog.Web.Controllers
 {
-    [Route("[controller]")]
     public class ArticlesController : Controller
     {
         private readonly IArticleService _articleService;
         private readonly UserManager<User> _userManager;
         private readonly ILogger<ArticlesController> _logger;
-
 
         public ArticlesController(
             IArticleService articleService,
@@ -28,9 +25,6 @@ namespace Blog.Web.Controllers
         }
 
         // GET: Articles - Allow all users to view articles
-        [HttpGet]
-        [Route("")]
-        [Route("Index")]
         public async Task<IActionResult> Index([FromQuery] string searchTerm, [FromQuery] string dateFilter)
         {
             try
@@ -47,8 +41,6 @@ namespace Blog.Web.Controllers
         }
 
         // GET: Articles/Details/5
-        [HttpGet]
-        [Route("Details/{id?}")]
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null)
@@ -66,8 +58,6 @@ namespace Blog.Web.Controllers
         }
 
         // GET: Articles/Create
-        [HttpGet]
-        [Route("Create")]
         [Authorize]
         public IActionResult Create()
         {
@@ -76,7 +66,6 @@ namespace Blog.Web.Controllers
 
         // POST: Articles/Create
         [HttpPost]
-        [Route("Create")]
         [ValidateAntiForgeryToken]
         [Authorize]
         public async Task<IActionResult> Create([FromForm] ArticleCreateViewModel model)
@@ -108,8 +97,6 @@ namespace Blog.Web.Controllers
         }
 
         // GET: Articles/Edit/5
-        [HttpGet]
-        [Route("Edit/{id?}")]
         [Authorize]
         public async Task<IActionResult> Edit(int? id)
         {
@@ -136,7 +123,6 @@ namespace Blog.Web.Controllers
 
         // POST: Articles/Edit/5
         [HttpPost]
-        [Route("Edit/{id}")]
         [ValidateAntiForgeryToken]
         [Authorize]
         public async Task<IActionResult> Edit(int id, [FromForm] ArticleCreateViewModel model)
@@ -160,8 +146,6 @@ namespace Blog.Web.Controllers
         }
 
         // GET: Articles/Delete/5
-        [HttpGet]
-        [Route("Delete/{id?}")]
         [Authorize]
         public async Task<IActionResult> Delete(int? id)
         {
@@ -187,8 +171,6 @@ namespace Blog.Web.Controllers
 
         // POST: Articles/Delete/5
         [HttpPost]
-        [Route("Delete/{id}")]
-        [ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize]
         public async Task<IActionResult> DeleteConfirmed(int id)
@@ -219,15 +201,22 @@ namespace Blog.Web.Controllers
         }
 
         [HttpPost]
-        [Route("UploadImage")]
         [ValidateAntiForgeryToken]
         [Authorize]
         public async Task<IActionResult> UploadImage(IFormFile file, bool isFeatured = false)
         {
             try
             {
-                var imageUrl = await _articleService.UploadImageAsync(file, isFeatured);
-                return Ok(new { imageUrl });
+                var result = await _articleService.UploadImageAsync(file, isFeatured);
+                
+                // Since the image is now processed in the background, we return a success message
+                // with a placeholder or temporary URL
+                return Ok(new { 
+                    message = "Image upload has been queued for processing",
+                    status = "processing",
+                    // You might want to generate a temporary URL or use a placeholder image
+                    imageUrl = "/images/placeholder-processing.jpg" 
+                });
             }
             catch (Exception ex)
             {
