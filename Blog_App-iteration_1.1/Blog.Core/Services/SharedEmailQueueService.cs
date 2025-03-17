@@ -8,8 +8,6 @@ using Blog.Core.Constants;
 
 namespace Blog.Core.Services
 {
-
-
     [SupportedOSPlatform("windows")]
     public class SharedEmailQueueService : ISharedEmailQueueService
     {
@@ -54,9 +52,8 @@ namespace Blog.Core.Services
                     _pipeServer.Disconnect();
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-
                 if (_pipeServer != null)
                 {
                     _pipeServer.Dispose();
@@ -88,7 +85,7 @@ namespace Blog.Core.Services
                 {
                     try
                     {
-                        await pipeClient.ConnectAsync(15000); // 15 second timeout
+                        await pipeClient.ConnectAsync(EmailQueueConstants.PipeConnectionTimeout); // 15 second timeout
                         using (StreamWriter writer = new StreamWriter(pipeClient))
                         {
                             string messageJson = JsonSerializer.Serialize(message);
@@ -96,15 +93,13 @@ namespace Blog.Core.Services
                             await writer.FlushAsync();
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        // Log error and implement retry logic
-                        Console.WriteLine(string.Format(EmailQueueConstants.ConnectionFailureMessage, ex.Message));
                         // Retry after a short delay
                         Thread.Sleep(EmailQueueConstants.RetryDelay);
                         try
                         {
-                            await pipeClient.ConnectAsync(15000); // 15 second timeout
+                            await pipeClient.ConnectAsync(EmailQueueConstants.PipeConnectionTimeout); // 15 second timeout
                             using (StreamWriter writer = new StreamWriter(pipeClient))
                             {
                                 string messageJson = JsonSerializer.Serialize(message);
@@ -112,9 +107,9 @@ namespace Blog.Core.Services
                                 await writer.FlushAsync();
                             }
                         }
-                        catch (Exception retryEx)
+                        catch (Exception)
                         {
-                            Console.WriteLine(string.Format(EmailQueueConstants.RetryFailureMessage, retryEx.Message));
+                            // Failed after retry
                         }
                     }
                 }

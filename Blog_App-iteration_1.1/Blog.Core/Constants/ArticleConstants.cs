@@ -21,5 +21,16 @@ namespace Blog.Core.Constants
             public const string FileSizeExceeded = "File size exceeds the maximum limit of {0}MB";
             public const string TotalSizeExceeded = "Total size exceeds the maximum limit of {0}MB";
         }
+        
+        public static class ImageStatus
+        {
+            public const string Processing = "processing";
+        }
+        
+        public static class ImageType
+        {
+            public const string Featured = "featured";
+            public const string Content = "content";
+        }
     }
 }

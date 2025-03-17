@@ -9,10 +9,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Blog.Core.Interfaces;
 using Google.Apis.Storage.v1.Data;
+using Blog.Core.Constants;
 
 namespace Blog.Core.Services
 {
-
     public class FirebaseStorageService : IFirebaseStorageService
     {
         private readonly FirebaseApp _firebaseApp;
@@ -23,50 +23,42 @@ namespace Blog.Core.Services
         public FirebaseStorageService(IConfiguration configuration, ILogger<FirebaseStorageService> logger)
         {
             _logger = logger;
-            _bucketName = "blog-ed498.firebasestorage.app";
-            _logger.LogInformation("Initializing FirebaseStorageService with bucket: {BucketName}", _bucketName);
+            _bucketName = FirebaseConstants.BucketName;
 
             try
             {
                 // Find the credentials file
-                var credentialsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "blog-ed498-firebase-adminsdk-fbsvc-218aa95c14.json");
-                _logger.LogInformation("Looking for credentials at: {CredentialsPath}", credentialsPath);
+                var credentialsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FirebaseConstants.CredentialsFileName);
                 
                 if (!File.Exists(credentialsPath))
                 {
                     // Try to find it in the project directory
                     var projectDir = Directory.GetCurrentDirectory();
-                    _logger.LogInformation("Credentials not found. Trying project directory: {ProjectDir}", projectDir);
-                    credentialsPath = Path.Combine(projectDir, "blog-ed498-firebase-adminsdk-fbsvc-218aa95c14.json");
+                    credentialsPath = Path.Combine(projectDir, FirebaseConstants.CredentialsFileName);
                     
                     if (!File.Exists(credentialsPath))
                     {
                         // Try one directory up (for web projects)
                         var parentDir = Directory.GetParent(projectDir)?.FullName;
-                        _logger.LogInformation("Credentials not found. Trying parent directory: {ParentDir}", parentDir);
-                        credentialsPath = Path.Combine(parentDir, "Blog.Core", "blog-ed498-firebase-adminsdk-fbsvc-218aa95c14.json");
+                        credentialsPath = Path.Combine(parentDir, "Blog.Core", FirebaseConstants.CredentialsFileName);
                         
                         // Try in the wwwroot folder
                         if (!File.Exists(credentialsPath))
                         {
                             var wwwrootPath = Path.Combine(projectDir, "wwwroot");
-                            _logger.LogInformation("Credentials not found. Trying wwwroot directory: {WwwrootPath}", wwwrootPath);
-                            credentialsPath = Path.Combine(wwwrootPath, "blog-ed498-firebase-adminsdk-fbsvc-218aa95c14.json");
+                            credentialsPath = Path.Combine(wwwrootPath, FirebaseConstants.CredentialsFileName);
                         }
                     }
                 }
 
                 if (!File.Exists(credentialsPath))
                 {
-                    _logger.LogError("Firebase credentials file not found after trying multiple locations");
-                    throw new FileNotFoundException("Firebase credentials file not found. Please ensure the file exists and is accessible.");
+                    _logger.LogError(FirebaseConstants.Messages.CredentialsNotFound);
+                    throw new FileNotFoundException(FirebaseConstants.Messages.CredentialsNotFound);
                 }
-
-                _logger.LogInformation("Found credentials file at: {CredentialsPath}", credentialsPath);
 
                 // Load the credential
                 _credential = GoogleCredential.FromFile(credentialsPath);
-                _logger.LogInformation("Successfully loaded Google credentials");
 
                 // Check if Firebase app is already initialized
                 if (FirebaseApp.DefaultInstance == null)
@@ -74,16 +66,14 @@ namespace Blog.Core.Services
                     var firebaseConfig = new AppOptions()
                     {
                         Credential = _credential,
-                        ProjectId = "blog-ed498"
+                        ProjectId = FirebaseConstants.ProjectId
                     };
 
                     _firebaseApp = FirebaseApp.Create(firebaseConfig);
-                    _logger.LogInformation("Created new Firebase app instance");
                 }
                 else
                 {
                     _firebaseApp = FirebaseApp.DefaultInstance;
-                    _logger.LogInformation("Using existing Firebase app instance");
                 }
             }
             catch (Exception ex)
@@ -97,9 +87,6 @@ namespace Blog.Core.Services
         {
             try
             {
-                _logger.LogInformation("Starting image upload. File name: {FileName}, Size: {FileSize}, Subfolder: {Subfolder}", 
-                    file.FileName, file.Length, subFolder);
-
                 // Create storage client with explicit credentials
                 var storage = StorageClient.Create(_credential);
                 var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
@@ -108,7 +95,7 @@ namespace Blog.Core.Services
                 string objectName;
                 if (string.IsNullOrEmpty(subFolder))
                 {
-                    objectName = $"content/{fileName}";
+                    objectName = $"{FirebaseConstants.Folders.Content}/{fileName}";
                 }
                 else
                 {
@@ -117,30 +104,27 @@ namespace Blog.Core.Services
                     objectName = $"{subFolder}/{fileName}";
                 }
 
-                _logger.LogInformation("Uploading to path: {ObjectPath} in bucket: {BucketName}", objectName, _bucketName);
-
                 using (var memoryStream = new MemoryStream())
                 {
                     await file.CopyToAsync(memoryStream);
                     memoryStream.Position = 0;
-                    _logger.LogInformation("File loaded into memory. Size: {MemorySize} bytes", memoryStream.Length);
                     
                     // Set content type based on file extension
-                    string contentType = "application/octet-stream";
+                    string contentType = FirebaseConstants.ContentTypes.OctetStream;
                     switch (Path.GetExtension(file.FileName).ToLower())
                     {
                         case ".jpg":
                         case ".jpeg":
-                            contentType = "image/jpeg";
+                            contentType = FirebaseConstants.ContentTypes.Jpeg;
                             break;
                         case ".png":
-                            contentType = "image/png";
+                            contentType = FirebaseConstants.ContentTypes.Png;
                             break;
                         case ".gif":
-                            contentType = "image/gif";
+                            contentType = FirebaseConstants.ContentTypes.Gif;
                             break;
                         case ".webp":
-                            contentType = "image/webp";
+                            contentType = FirebaseConstants.ContentTypes.Webp;
                             break;
                     }
                     
@@ -156,21 +140,17 @@ namespace Blog.Core.Services
                         contentType, 
                         memoryStream,
                         options: uploadOptions);
-                    
-                    _logger.LogInformation("Upload successful. Object: {ObjectName}", uploadedObject.Name);
                 }
 
                 // Generate the public URL
-                var publicUrl = $"https://storage.googleapis.com/{_bucketName}/{objectName}";
-                _logger.LogInformation("Generated public URL: {PublicUrl}", publicUrl);
+                var publicUrl = string.Format(FirebaseConstants.Urls.StorageBaseUrl, _bucketName, objectName);
                 
                 return publicUrl;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error uploading image to Firebase Storage. File: {FileName}, Subfolder: {Subfolder}", 
-                    file.FileName, subFolder);
-                throw new Exception($"An error occurred while uploading the image: {ex.Message}", ex);
+                _logger.LogError(ex, "Error uploading image to Firebase Storage");
+                throw new Exception(string.Format(FirebaseConstants.Messages.UploadError, ex.Message), ex);
             }
         }
 
@@ -178,36 +158,32 @@ namespace Blog.Core.Services
         {
             try
             {
-                _logger.LogInformation("Starting profile picture upload. File name: {FileName}, Size: {FileSize}, Content Type: {ContentType}", 
-                    file.FileName, file.Length, file.ContentType);
-
                 // Validate file size (2MB limit for profile pictures)
-                if (file.Length > 2 * 1024 * 1024)
+                if (file.Length > FirebaseConstants.Limits.ProfilePictureMaxSize)
                 {
-                    _logger.LogWarning("File size exceeds limit. Size: {FileSize}", file.Length);
-                    throw new ArgumentException("Profile picture size must not exceed 2MB");
+                    throw new ArgumentException(FirebaseConstants.Messages.ProfilePictureSizeExceeded);
                 }
 
                 // Validate file type
-                var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+                var allowedTypes = new[] { 
+                    FirebaseConstants.ContentTypes.Jpeg, 
+                    FirebaseConstants.ContentTypes.Png, 
+                    FirebaseConstants.ContentTypes.Webp 
+                };
+                
                 if (!allowedTypes.Contains(file.ContentType))
                 {
-                    _logger.LogWarning("Invalid file type: {ContentType}", file.ContentType);
-                    throw new ArgumentException("Only JPG, PNG, and WEBP images are allowed for profile pictures");
+                    throw new ArgumentException(FirebaseConstants.Messages.ProfilePictureInvalidType);
                 }
 
-                _logger.LogInformation("Profile picture validation passed, proceeding with upload to profilepictures folder");
-
                 // Use the UploadImageAsync method with the profilepictures subfolder
-                var result = await UploadImageAsync(file, "profilepictures");
-                
-                _logger.LogInformation("Profile picture uploaded successfully to {Url}", result);
+                var result = await UploadImageAsync(file, FirebaseConstants.Folders.ProfilePictures);
                 
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error uploading profile picture to Firebase Storage. File: {FileName}", file.FileName);
+                _logger.LogError(ex, "Error uploading profile picture to Firebase Storage");
                 throw;
             }
         }
@@ -216,23 +192,17 @@ namespace Blog.Core.Services
         {
             try
             {
-                _logger.LogInformation("Starting image deletion. URL: {ImageUrl}", imageUrl);
-
                 // Create storage client with explicit credentials
                 var storage = StorageClient.Create(_credential);
                 var uri = new Uri(imageUrl);
                 var objectName = uri.LocalPath.TrimStart('/');
                 
-                _logger.LogInformation("Deleting object: {ObjectName} from bucket: {BucketName}", objectName, _bucketName);
-                
                 await storage.DeleteObjectAsync(_bucketName, objectName);
-                
-                _logger.LogInformation("Successfully deleted object: {ObjectName}", objectName);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting image from Firebase Storage. URL: {ImageUrl}", imageUrl);
-                throw new Exception($"An error occurred while deleting the image: {ex.Message}", ex);
+                _logger.LogError(ex, "Error deleting image from Firebase Storage");
+                throw new Exception(string.Format(FirebaseConstants.Messages.DeleteError, ex.Message), ex);
             }
         }
     }

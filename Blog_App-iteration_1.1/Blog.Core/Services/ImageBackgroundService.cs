@@ -7,6 +7,7 @@ using Blog.Core.Interfaces;
 using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
 using Blog.Infrastructure.Data;
+using Blog.Core.Constants;
 
 namespace Blog.Core.Services
 {
@@ -47,7 +48,7 @@ namespace Blog.Core.Services
                 SubFolder = subFolder,
                 IsFeatured = isFeatured,
                 ArticleId = articleId,
-                ImageType = isFeatured ? "featured" : "content",
+                ImageType = isFeatured ? ArticleConstants.ImageType.Featured : ArticleConstants.ImageType.Content,
                 OnComplete = async (url, articleId) => 
                 {
                     if (articleId.HasValue)
@@ -89,7 +90,7 @@ namespace Blog.Core.Services
                             fileStream,
                             0,
                             fileStream.Length,
-                            "image",
+                            ImageProcessingConstants.FormFields.Image,
                             Path.GetFileName(job.TempFilePath)
                         );
 
@@ -107,7 +108,7 @@ namespace Blog.Core.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error processing image job {JobId}", job.Id);
+                        _logger.LogError(ex, ImageProcessingConstants.ErrorMessages.ProcessingError, job.Id);
                         if (_pendingUploads.TryGetValue(job.Id, out var tcs))
                         {
                             tcs.SetException(ex);
@@ -125,7 +126,7 @@ namespace Blog.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error in background service");
+                    _logger.LogError(ex, ImageProcessingConstants.ErrorMessages.BackgroundServiceError);
                 }
             }
         }

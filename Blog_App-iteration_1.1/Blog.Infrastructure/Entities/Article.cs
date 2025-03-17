@@ -19,7 +19,6 @@ namespace Blog.Infrastructure.Entities
         public string Intro { get; set; }
         
         public string? FeaturedImage { get; set; }
-        public bool IsPublished { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? PublishedAt { get; set; }
@@ -35,7 +34,6 @@ namespace Blog.Infrastructure.Entities
             Comments = new HashSet<Comment>();
             Reports = new HashSet<Report>();
             CreatedAt = DateTime.UtcNow;
-            IsPublished = false;
         }
     }
 } 

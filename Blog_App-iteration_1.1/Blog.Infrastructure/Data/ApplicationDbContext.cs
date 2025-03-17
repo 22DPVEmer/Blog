@@ -205,7 +205,6 @@ namespace Blog.Infrastructure.Data
                     Content = "This is a basic introduction to ASP.NET Core...",
                     UserId = user1.Id,
                     CreatedAt = DateTime.UtcNow.AddDays(-10),
-                    IsPublished = true,
                     PublishedAt = DateTime.UtcNow.AddDays(-10)
                 },
                 new Article
@@ -216,7 +215,6 @@ namespace Blog.Infrastructure.Data
                     Content = "Entity Framework Core is an object-relational mapper...",
                     UserId = user2.Id,
                     CreatedAt = DateTime.UtcNow.AddDays(-9),
-                    IsPublished = true,
                     PublishedAt = DateTime.UtcNow.AddDays(-9)
                 },
                 new Article
@@ -227,7 +225,6 @@ namespace Blog.Infrastructure.Data
                     Content = "Security is a crucial aspect of web applications...",
                     UserId = user3.Id,
                     CreatedAt = DateTime.UtcNow.AddDays(-8),
-                    IsPublished = true,
                     PublishedAt = DateTime.UtcNow.AddDays(-8)
                 },
                 new Article
@@ -238,7 +235,6 @@ namespace Blog.Infrastructure.Data
                     Content = "When designing Web APIs, there are several principles...",
                     UserId = admin1.Id,
                     CreatedAt = DateTime.UtcNow.AddDays(-7),
-                    IsPublished = true,
                     PublishedAt = DateTime.UtcNow.AddDays(-7)
                 },
                 new Article
@@ -249,7 +245,6 @@ namespace Blog.Infrastructure.Data
                     Content = "Dependency injection is a software design pattern...",
                     UserId = admin2.Id,
                     CreatedAt = DateTime.UtcNow.AddDays(-6),
-                    IsPublished = true,
                     PublishedAt = DateTime.UtcNow.AddDays(-6)
                 },
                 new Article
@@ -260,7 +255,6 @@ namespace Blog.Infrastructure.Data
                     Content = "Cloud computing has revolutionized modern applications...",
                     UserId = user1.Id,
                     CreatedAt = DateTime.UtcNow.AddDays(-5),
-                    IsPublished = true,
                     PublishedAt = DateTime.UtcNow.AddDays(-5)
                 },
                 new Article
@@ -271,7 +265,6 @@ namespace Blog.Infrastructure.Data
                     Content = "Microservices architecture is an approach to building applications...",
                     UserId = user2.Id,
                     CreatedAt = DateTime.UtcNow.AddDays(-4),
-                    IsPublished = true,
                     PublishedAt = DateTime.UtcNow.AddDays(-4)
                 },
                 new Article
@@ -282,7 +275,6 @@ namespace Blog.Infrastructure.Data
                     Content = "Unit testing is a fundamental practice in software development...",
                     UserId = user3.Id,
                     CreatedAt = DateTime.UtcNow.AddDays(-3),
-                    IsPublished = true,
                     PublishedAt = DateTime.UtcNow.AddDays(-3)
                 },
                 new Article
@@ -293,7 +285,6 @@ namespace Blog.Infrastructure.Data
                     Content = "DevOps is a set of practices that combines software development...",
                     UserId = admin1.Id,
                     CreatedAt = DateTime.UtcNow.AddDays(-2),
-                    IsPublished = true,
                     PublishedAt = DateTime.UtcNow.AddDays(-2)
                 },
                 new Article
@@ -304,7 +295,6 @@ namespace Blog.Infrastructure.Data
                     Content = "Security should be a top priority in web development...",
                     UserId = admin2.Id,
                     CreatedAt = DateTime.UtcNow.AddDays(-1),
-                    IsPublished = true,
                     PublishedAt = DateTime.UtcNow.AddDays(-1)
                 }
             };
