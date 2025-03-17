@@ -12,7 +12,9 @@
 .vswp
 *.pubxml
 *.pubxml.user
-
+# Firebase credentials
+*firebase-adminsdk*.json
+blogapp-248d7-firebase-adminsdk-fbsvc-167eb1a680.json 
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

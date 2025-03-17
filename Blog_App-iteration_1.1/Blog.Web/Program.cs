@@ -1,12 +1,13 @@
 using Blog.Infrastructure.Entities;
 using Blog.Core.Settings;
-using Blog.Core.Services;
 using Blog.Core.Interfaces;
+using Blog.Core.Services;
 using Blog.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Blog.Web.Services;
+using Blog.Core.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,9 +44,32 @@ builder.Services.AddSingleton<ISharedEmailQueueService>(_ => new SharedEmailQueu
 // Add Email Sender that uses the queue service
 builder.Services.AddScoped<IEmailSender, EmailSenderService>();
 
+// Add Firebase Storage Service
+builder.Services.AddScoped<IFirebaseStorageService, FirebaseStorageService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+
+// Add Image Processing Background Service
+builder.Services.AddSingleton<ImageProcessingBackgroundService>();
+builder.Services.AddHostedService(
+    provider => provider.GetRequiredService<ImageProcessingBackgroundService>());
+
+// Add FileSettings configuration
+builder.Services.Configure<FileSettings>(
+    builder.Configuration.GetSection("FileSettings"));
 
 builder.Services.AddRazorPages();
 builder.Services.AddControllersWithViews();
+
+// Add Session Configuration
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+builder.Services.AddScoped<IArticleService, ArticleService>();
 
 var app = builder.Build();
 
@@ -64,6 +88,9 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Enable session
+app.UseSession();
 
 app.MapControllerRoute(
     name: "default",

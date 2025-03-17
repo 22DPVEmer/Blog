@@ -1,0 +1,139 @@
+@model IEnumerable<Blog.Infrastructure.Entities.Article>
+
+@{
+    ViewData["Title"] = "Articles";
+}
+
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="display-4">Articles</h1>
+        </div>
+        <div class="col-md-4 text-end">
+            @if (User.Identity.IsAuthenticated && (await UserManager.GetUserAsync(User)).CanWriteArticles)
+            {
+                <a asp-action="Create" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create New Article
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-circle me-2"></i>
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <form method="get" class="d-flex gap-2">
+                <input type="text" name="searchTerm" class="form-control" placeholder="Search articles..." 
+                       value="@Context.Request.Query["searchTerm"]" />
+                <select name="dateFilter" class="form-select" style="width: auto;">
+                    <option value="">All Time</option>
+                    <option value="today" selected="@(Context.Request.Query["dateFilter"] == "today")">Today</option>
+                    <option value="week" selected="@(Context.Request.Query["dateFilter"] == "week")">This Week</option>
+                    <option value="month" selected="@(Context.Request.Query["dateFilter"] == "month")">This Month</option>
+                    <option value="year" selected="@(Context.Request.Query["dateFilter"] == "year")">This Year</option>
+                </select>
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </form>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="text-center my-5">
+            <div class="display-6 text-muted mb-3">No Articles Found</div>
+            <p class="lead">
+                @if (Context.Request.Query.Count > 0)
+                {
+                    <span>No articles match your search criteria. Try adjusting your filters or search terms.</span>
+                }
+                else
+                {
+                    <span>There are no articles published yet. Check back later!</span>
+                }
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var item in Model)
+            {
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        @if (!string.IsNullOrEmpty(item.FeaturedImage))
+                        {
+                            <img src="@item.FeaturedImage" class="card-img-top" alt="@item.Title" 
+                                 style="height: 200px; object-fit: cover;">
+                        }
+                        <div class="card-body">
+                            <h5 class="card-title">@item.Title</h5>
+                            <p class="card-text intro-text">@item.Intro</p>
+                            <p class="card-text text-muted small">
+                                <i class="bi bi-person"></i> @item.User.UserName
+                                <span class="mx-2">•</span>
+                                <i class="bi bi-calendar"></i> @item.PublishedAt?.ToString("MMM dd, yyyy")
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-primary btn-sm">
+                                    Read More <i class="bi bi-arrow-right"></i>
+                                </a>
+                                @if (User.Identity.IsAuthenticated && 
+                                    (item.UserId == UserManager.GetUserId(User) || 
+                                     User.IsInRole("Administrator")))
+                                {
+                                    <div class="btn-group">
+                                        <a asp-action="Edit" asp-route-id="@item.Id" 
+                                           class="btn btn-outline-secondary btn-sm">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@item.Id" 
+                                           class="btn btn-outline-danger btn-sm">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        .intro-text {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            height: 4.5em;
+        }
+    </style>
+}
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
