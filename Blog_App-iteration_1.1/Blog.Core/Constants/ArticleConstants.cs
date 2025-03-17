@@ -20,6 +20,13 @@ namespace Blog.Core.Constants
             public const string ImageUploadError = "Error uploading image";
             public const string FileSizeExceeded = "File size exceeds the maximum limit of {0}MB";
             public const string TotalSizeExceeded = "Total size exceeds the maximum limit of {0}MB";
+            public const string InvalidFileType = "Invalid file type. Allowed types are: {0}";
+        }
+        
+        public static class LoggerMessages
+        {
+            public const string FailedToDeleteFeaturedImage = "Failed to delete old featured image for article {ArticleId}";
+            public const string FailedToDeleteStorageImage = "Failed to delete featured image from storage for article {ArticleId}";
         }
         
         public static class ImageStatus

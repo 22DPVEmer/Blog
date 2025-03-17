@@ -104,23 +104,20 @@ namespace Blog.Core.Services
             await _context.SaveChangesAsync();
 
             // Handle featured image upload if provided
-            if (model.FeaturedImageFile != null)
+            try
             {
-                try
-                {
-                    ValidateImageFile(model.FeaturedImageFile);
-                    // Queue the featured image upload and wait for the URL
-                    article.FeaturedImage = await _imageProcessingService.QueueImageUploadAsync(
-                        model.FeaturedImageFile, 
-                        ArticleConstants.ImageType.Featured, 
-                        true,
-                        article.Id);
-                    await _context.SaveChangesAsync();
-                }
-                catch (ArgumentException)
-                {
-                    // If validation fails, just continue without setting the image
-                }
+                ValidateImageFile(model.FeaturedImageFile);
+                // Queue the featured image upload and wait for the URL
+                article.FeaturedImage = await _imageProcessingService.QueueImageUploadAsync(
+                    model.FeaturedImageFile, 
+                    ArticleConstants.ImageType.Featured, 
+                    true,
+                    article.Id);
+                await _context.SaveChangesAsync();
+            }
+            catch (ArgumentException)
+            {
+                // If validation fails, just continue without setting the image
             }
 
             return article;
@@ -130,46 +127,46 @@ namespace Blog.Core.Services
         {
             var existingArticle = await _context.Articles.FindAsync(id);
 
-            if (existingArticle != null && existingArticle.UserId != user.Id)
+            if (existingArticle == null)
+            {
+                throw new ArgumentException(ArticleConstants.Messages.ArticleNotFound);
+            }
+
+            if (existingArticle.UserId != user.Id)
             {
                 throw new UnauthorizedAccessException(ArticleConstants.Messages.UnauthorizedEdit);
             }
 
-
-
             // Handle featured image upload if provided
-            if (model.FeaturedImageFile != null)
+            try
             {
-                try
-                {
-                    ValidateImageFile(model.FeaturedImageFile);
+                ValidateImageFile(model.FeaturedImageFile);
 
-                    // Delete old featured image if it exists
-                    if (!string.IsNullOrEmpty(existingArticle.FeaturedImage) && 
-                        existingArticle.FeaturedImage != ArticleConstants.ImageStatus.Processing)
+                // Delete old featured image if it exists
+                if (!string.IsNullOrEmpty(existingArticle.FeaturedImage) && 
+                    existingArticle.FeaturedImage != ArticleConstants.ImageStatus.Processing)
+                {
+                    try
                     {
-                        try
-                        {
-                            await _firebaseStorageService.DeleteImageAsync(existingArticle.FeaturedImage);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to delete old featured image for article {ArticleId}", id);
-                            // Continue with upload even if deletion fails
-                        }
+                        await _firebaseStorageService.DeleteImageAsync(existingArticle.FeaturedImage);
                     }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, ArticleConstants.LoggerMessages.FailedToDeleteFeaturedImage, id);
+                        // Continue with upload even if deletion fails
+                    }
+                }
 
-                    // Queue the new featured image upload and wait for the URL
-                    existingArticle.FeaturedImage = await _imageProcessingService.QueueImageUploadAsync(
-                        model.FeaturedImageFile, 
-                        ArticleConstants.ImageType.Featured, 
-                        true,
-                        existingArticle.Id);
-                }
-                catch (ArgumentException)
-                {
-                    // If validation fails, just continue without setting the image
-                }
+                // Queue the new featured image upload and wait for the URL
+                existingArticle.FeaturedImage = await _imageProcessingService.QueueImageUploadAsync(
+                    model.FeaturedImageFile, 
+                    ArticleConstants.ImageType.Featured, 
+                    true,
+                    existingArticle.Id);
+            }
+            catch (ArgumentException)
+            {
+                // If validation fails, just continue without setting the image
             }
 
             // Update article properties
@@ -187,12 +184,16 @@ namespace Blog.Core.Services
             // Get the article
             var article = await _context.Articles.FindAsync(id);
             
+            if (article == null)
+            {
+                return false;
+            }
+
             // Check if user has permission to delete the article
-            if (article != null && article.UserId != user.Id)
+            if (article.UserId != user.Id)
             {
                 throw new UnauthorizedAccessException(ArticleConstants.Messages.UnauthorizedEdit);
             }
-            
 
             // Delete the article's featured image from Firebase Storage if it exists
             if (!string.IsNullOrEmpty(article.FeaturedImage))
@@ -203,7 +204,7 @@ namespace Blog.Core.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to delete featured image from storage for article {ArticleId}", id);
+                    _logger.LogWarning(ex, ArticleConstants.LoggerMessages.FailedToDeleteStorageImage, id);
                     // Continue with article deletion even if image deletion fails
                 }
             }
@@ -227,7 +228,12 @@ namespace Blog.Core.Services
         private void ValidateImageFile(IFormFile file)
         {
             // Check if file is null or empty
-            if (file == null || file.Length == 0)
+            if (file == null)
+            {
+                return; // Skip validation if file is null
+            }
+            
+            if (file.Length == 0)
             {
                 throw new ArgumentException(ArticleConstants.Messages.ImageUploadError);
             }
@@ -243,7 +249,9 @@ namespace Blog.Core.Services
             // Check file type
             if (string.IsNullOrEmpty(file.ContentType) || !_fileSettings.AllowedImageTypes.Contains(file.ContentType))
             {
-                throw new ArgumentException($"Invalid file type. Allowed types are: {string.Join(", ", _fileSettings.AllowedImageTypes)}");
+                throw new ArgumentException(string.Format(
+                    ArticleConstants.Messages.InvalidFileType, 
+                    string.Join(", ", _fileSettings.AllowedImageTypes)));
             }
         }
     }
