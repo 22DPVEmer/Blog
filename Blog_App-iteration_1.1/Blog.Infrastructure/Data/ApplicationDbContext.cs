@@ -18,10 +18,25 @@ namespace Blog.Infrastructure.Data
         public DbSet<Report> Reports { get; set; }
         public DbSet<Rank> Ranks { get; set; }
         public DbSet<PermissionRequest> PermissionRequests { get; set; }
+        public DbSet<ArticleVote> ArticleVotes { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            // Configure ArticleVote relationships
+            builder.Entity<ArticleVote>()
+                .HasOne(v => v.Article)
+                .WithMany(a => a.Votes)
+                .HasForeignKey(v => v.ArticleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<ArticleVote>()
+                .HasOne(v => v.User)
+                .WithMany(u => u.ArticleVotes)
+                .HasForeignKey(v => v.UserId)
+                .OnDelete(DeleteBehavior.Restrict); // Avoid cycles with cascading delete
 
             // Seed Users
             var hasher = new PasswordHasher<User>();

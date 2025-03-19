@@ -22,18 +22,27 @@ namespace Blog.Infrastructure.Entities
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? PublishedAt { get; set; }
+        
+        // Vote properties
+        public int UpvoteCount { get; set; }
+        public int DownvoteCount { get; set; }
+        public int Score => UpvoteCount - DownvoteCount;
 
         // Navigation properties
         public string UserId { get; set; }
         public virtual User User { get; set; }
         public virtual ICollection<Comment> Comments { get; set; }
         public virtual ICollection<Report> Reports { get; set; }
+        public virtual ICollection<ArticleVote> Votes { get; set; }
 
         public Article()
         {
             Comments = new HashSet<Comment>();
             Reports = new HashSet<Report>();
+            Votes = new HashSet<ArticleVote>();
             CreatedAt = DateTime.UtcNow;
+            UpvoteCount = 0;
+            DownvoteCount = 0;
         }
     }
-} 
+}

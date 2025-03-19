@@ -35,14 +35,23 @@ namespace Blog.Web.Controllers
 
             ViewBag.IsAdmin = user.IsAdmin;
             ViewBag.CanWriteArticles = user.CanWriteArticles;
+            ViewBag.CanVoteArticles = user.CanVoteArticles;
 
             var requests = user.IsAdmin
                 ? await _permissionService.GetAdminPermissionRequestsAsync()
                 : await _permissionService.GetUserPermissionRequestsAsync(user.Id);
 
-            if (!user.IsAdmin && user.CanWriteArticles)
+            if (!user.IsAdmin && user.CanWriteArticles && !user.CanVoteArticles)
             {
                 TempData["InfoMessage"] = "You already have permission to write articles.";
+            }
+            else if (!user.IsAdmin && user.CanVoteArticles && !user.CanWriteArticles)
+            {
+                TempData["InfoMessage"] = "You already have permission to vote on articles.";
+            }
+            else if (!user.IsAdmin && user.CanWriteArticles && user.CanVoteArticles)
+            {
+                TempData["InfoMessage"] = "You have permission to write and vote on articles.";
             }
 
             return View(requests);
@@ -50,25 +59,59 @@ namespace Blog.Web.Controllers
 
         // GET: Permissions/Request
         [HttpGet("Request")]
-        public async Task<IActionResult> Request()
+        public async Task<IActionResult> Request(bool isVoteRequest = false)
         {
             var user = await _userManager.GetUserAsync(User);
-            if (user.CanWriteArticles)
+            
+            if (isVoteRequest)
             {
-                TempData["InfoMessage"] = "You already have permission to write articles.";
-                return RedirectToAction(nameof(Index));
+                if (user.CanVoteArticles)
+                {
+                    TempData["InfoMessage"] = "You already have permission to vote on articles.";
+                    return RedirectToAction(nameof(Index));
+                }
+                ViewBag.IsVoteRequest = true;
+                ViewBag.Title = "Request Voting Permission";
+                ViewBag.Description = "Why would you like to vote on articles?";
             }
+            else
+            {
+                if (user.CanWriteArticles)
+                {
+                    TempData["InfoMessage"] = "You already have permission to write articles.";
+                    return RedirectToAction(nameof(Index));
+                }
+                ViewBag.IsVoteRequest = false;
+                ViewBag.Title = "Request Writing Permission";
+                ViewBag.Description = "Why would you like to write articles?";
+            }
+            
             return View();
         }
 
         // POST: Permissions/Request
         [HttpPost("Request")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Request([FromForm] string reason)
+        public async Task<IActionResult> Request([FromForm] string reason, [FromForm] bool isVoteRequest = false)
         {
             if (string.IsNullOrWhiteSpace(reason))
             {
                 ModelState.AddModelError("", "Please provide a reason for your request.");
+                
+                // Set ViewBag values for the view
+                if (isVoteRequest)
+                {
+                    ViewBag.IsVoteRequest = true;
+                    ViewBag.Title = "Request Voting Permission";
+                    ViewBag.Description = "Why would you like to vote on articles?";
+                }
+                else
+                {
+                    ViewBag.IsVoteRequest = false;
+                    ViewBag.Title = "Request Writing Permission";
+                    ViewBag.Description = "Why would you like to write articles?";
+                }
+                
                 return View();
             }
 
@@ -78,22 +121,46 @@ namespace Blog.Web.Controllers
                 return NotFound();
             }
 
-            if (user.CanWriteArticles)
+            if (isVoteRequest)
             {
-                TempData["InfoMessage"] = "You already have permission to write articles.";
-                return RedirectToAction(nameof(Index));
+                if (user.CanVoteArticles)
+                {
+                    TempData["InfoMessage"] = "You already have permission to vote on articles.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                var hasPendingVoteRequest = await _permissionService.HasPendingVoteRequestAsync(user.Id);
+                if (hasPendingVoteRequest)
+                {
+                    ModelState.AddModelError("", "You already have a pending vote permission request.");
+                    ViewBag.IsVoteRequest = true;
+                    ViewBag.Title = "Request Voting Permission";
+                    ViewBag.Description = "Why would you like to vote on articles?";
+                    return View();
+                }
+            }
+            else
+            {
+                if (user.CanWriteArticles)
+                {
+                    TempData["InfoMessage"] = "You already have permission to write articles.";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                var hasPendingRequest = await _permissionService.HasPendingRequestAsync(user.Id);
+                if (hasPendingRequest)
+                {
+                    ModelState.AddModelError("", "You already have a pending write permission request.");
+                    ViewBag.IsVoteRequest = false;
+                    ViewBag.Title = "Request Writing Permission";
+                    ViewBag.Description = "Why would you like to write articles?";
+                    return View();
+                }
             }
 
-            var hasPendingRequest = await _permissionService.HasPendingRequestAsync(user.Id);
-            if (hasPendingRequest)
-            {
-                ModelState.AddModelError("", "You already have a pending request.");
-                return View();
-            }
+            await _permissionService.CreatePermissionRequestAsync(user.Id, reason, isVoteRequest);
 
-            await _permissionService.CreatePermissionRequestAsync(user.Id, reason);
-
-            TempData["SuccessMessage"] = "Your request has been submitted successfully.";
+            TempData["SuccessMessage"] = $"Your {(isVoteRequest ? "voting" : "writing")} permission request has been submitted successfully.";
             return RedirectToAction(nameof(Index));
         }
 

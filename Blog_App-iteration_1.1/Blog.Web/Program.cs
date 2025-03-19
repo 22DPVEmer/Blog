@@ -47,6 +47,7 @@ builder.Services.AddScoped<IEmailSender, EmailSenderService>();
 // Add Firebase Storage Service
 builder.Services.AddScoped<IFirebaseStorageService, FirebaseStorageService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IArticleVoteService, ArticleVoteService>();
 
 // Add Image Processing Background Service
 builder.Services.AddSingleton<ImageProcessingBackgroundService>();

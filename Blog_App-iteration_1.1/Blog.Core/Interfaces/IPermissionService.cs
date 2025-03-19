@@ -9,7 +9,8 @@ namespace Blog.Core.Interfaces
         Task<List<PermissionRequest>> GetAdminPermissionRequestsAsync();
         Task<List<PermissionRequest>> GetUserPermissionRequestsAsync(string userId);
         Task<bool> HasPendingRequestAsync(string userId);
-        Task CreatePermissionRequestAsync(string userId, string reason);
+        Task CreatePermissionRequestAsync(string userId, string reason, bool isVotePermission = false);
         Task ProcessPermissionRequestAsync(int requestId, string adminId, bool approved, string rejectionReason = null);
+        Task<bool> HasPendingVoteRequestAsync(string userId);
     }
 }

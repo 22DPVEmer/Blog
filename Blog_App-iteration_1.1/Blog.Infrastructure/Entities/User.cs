@@ -13,12 +13,14 @@ namespace Blog.Infrastructure.Entities
         public DateTime? UpdatedAt { get; set; }
         public bool IsAdmin { get; set; }
         public bool CanWriteArticles { get; set; }
-        public bool IsActive { get; set; }
+        public bool CanVoteArticles { get; set; }
+        public bool IsActive { get; set;}
 
         // Navigation properties
         public virtual ICollection<Article> Articles { get; set; }
         public virtual ICollection<Comment> Comments { get; set; }
         public virtual ICollection<Report> Reports { get; set; }
+        public virtual ICollection<ArticleVote> ArticleVotes { get; set; }
         public virtual Rank Rank { get; set; }
         public int? RankId { get; set; }
 
@@ -27,9 +29,12 @@ namespace Blog.Infrastructure.Entities
             Articles = new HashSet<Article>();
             Comments = new HashSet<Comment>();
             Reports = new HashSet<Report>();
+            ArticleVotes = new HashSet<ArticleVote>();
             CreatedAt = DateTime.UtcNow;
             IsActive = true;
-            CanWriteArticles = false; // Default to false, admin can grant this permission
+            CanWriteArticles = false;
+            CanVoteArticles = false;
+            IsAdmin = false;
         }
     }
-} 
+}

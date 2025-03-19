@@ -49,6 +49,12 @@
                     <option value="month" selected="@(Context.Request.Query["dateFilter"] == "month")">This Month</option>
                     <option value="year" selected="@(Context.Request.Query["dateFilter"] == "year")">This Year</option>
                 </select>
+                <select name="sortBy" class="form-select" style="width: auto;">
+                    <option value="newest" selected="@(ViewBag.CurrentSortBy == "newest" || ViewBag.CurrentSortBy == null)">Newest</option>
+                    <option value="popular" selected="@(ViewBag.CurrentSortBy == "popular")">Most Popular</option>
+                    <option value="mostupvoted" selected="@(ViewBag.CurrentSortBy == "mostupvoted")">Most Upvoted</option>
+                    <option value="mostdownvoted" selected="@(ViewBag.CurrentSortBy == "mostdownvoted")">Most Downvoted</option>
+                </select>
                 <button type="submit" class="btn btn-outline-primary">
                     <i class="bi bi-search"></i> Search
                 </button>
@@ -85,7 +91,20 @@
                                  style="height: 200px; object-fit: cover;">
                         }
                         <div class="card-body">
-                            <h5 class="card-title">@item.Title</h5>
+                            <div class="d-flex justify-content-between">
+                                <h5 class="card-title">@item.Title</h5>
+                                <div class="article-votes">
+                                    <span class="badge rounded-pill bg-success">
+                                        <i class="bi bi-hand-thumbs-up"></i> @item.UpvoteCount
+                                    </span>
+                                    <span class="badge rounded-pill bg-danger">
+                                        <i class="bi bi-hand-thumbs-down"></i> @item.DownvoteCount
+                                    </span>
+                                    <span class="badge rounded-pill @(item.Score > 0 ? "bg-success" : (item.Score < 0 ? "bg-danger" : "bg-secondary"))">
+                                        Score: @item.Score
+                                    </span>
+                                </div>
+                            </div>
                             <p class="card-text intro-text">@item.Intro</p>
                             <p class="card-text text-muted small">
                                 <i class="bi bi-person"></i> @item.User.UserName
@@ -130,6 +149,12 @@
             overflow: hidden;
             text-overflow: ellipsis;
             height: 4.5em;
+        }
+        
+        .article-votes {
+            display: flex;
+            gap: 5px;
+            align-items: center;
         }
     </style>
 }

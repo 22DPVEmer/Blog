@@ -4,68 +4,196 @@
     ViewData["Title"] = Model.Title;
 }
 
-<div class="container mt-5">
+<div class="container mt-4">
     <div class="row">
-        <div class="col-lg-8 offset-lg-2">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb bg-transparent px-0">
-                    <li class="breadcrumb-item"><a asp-action="Index">Articles</a></li>
-                    <li class="breadcrumb-item active" aria-current="page">@Model.Title</li>
-                </ol>
-            </nav>
+        <div class="col-md-8 offset-md-2">
+            <article class="article-content">
+                <header class="mb-4">
+                    <h1 class="display-4">@Model.Title</h1>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="article-meta">
+                            <span class="text-muted">
+                                <i class="bi bi-person"></i> @Model.User?.UserName
+                                <span class="mx-2">•</span>
+                                <i class="bi bi-calendar"></i> @Model.PublishedAt?.ToString("MMMM dd, yyyy")
+                            </span>
+                        </div>
+                        <div class="article-votes">
+                            @if (User.Identity.IsAuthenticated)
+                            {
+                                @if (ViewBag.UserCanVoteArticles)
+                                {
+                                    <form id="antiForgeryForm">
+                                        @Html.AntiForgeryToken()
+                                    </form>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-outline-success @(ViewBag.UserVote?.IsUpvote == true ? "active" : "")"
+                                                onclick="voteArticle(@Model.Id, true)">
+                                            <i class="bi bi-hand-thumbs-up"></i> @Model.UpvoteCount
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger @(ViewBag.UserVote?.IsUpvote == false ? "active" : "")"
+                                                onclick="voteArticle(@Model.Id, false)">
+                                            <i class="bi bi-hand-thumbs-down"></i> @Model.DownvoteCount
+                                        </button>
+                                        @if (ViewBag.UserVote != null)
+                                        {
+                                            <button type="button" class="btn btn-outline-secondary"
+                                                    onclick="removeVote(@Model.Id)">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="text-muted">
+                                        <i class="bi bi-lock"></i> You need permission to vote on articles
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="text-muted">
+                                    <i class="bi bi-person"></i> Please log in to vote
+                                </div>
+                            }
+                            <span class="badge rounded-pill @(Model.Score > 0 ? "bg-success" : (Model.Score < 0 ? "bg-danger" : "bg-secondary")) ms-2">
+                                Score: @Model.Score
+                            </span>
+                        </div>
+                    </div>
+                </header>
 
-            <article>
                 @if (!string.IsNullOrEmpty(Model.FeaturedImage))
                 {
-                    <div class="featured-image-container">
-                        <img src="@Model.FeaturedImage" class="featured-image" alt="@Model.Title">
+                    <div class="featured-image mb-4">
+                        <img src="@Model.FeaturedImage" class="img-fluid rounded" alt="@Model.Title">
                     </div>
                 }
 
-                <h1 class="display-4 mb-4">@Model.Title</h1>
-
-                <div class="article-metadata">
-                    <div>
-                        <i class="bi bi-person-circle"></i>
-                        <span>By @Model.User.UserName</span>
-                    </div>
-                    <div>
-                        <i class="bi bi-calendar3"></i>
-                        <span>@Model.PublishedAt?.ToString("MMMM dd, yyyy")</span>
-                    </div>
-                    @if (Model.UpdatedAt.HasValue && Model.UpdatedAt != Model.CreatedAt)
-                    {
-                        <div>
-                            <i class="bi bi-clock-history"></i>
-                            <span>Updated @Model.UpdatedAt?.ToString("MMMM dd, yyyy")</span>
-                        </div>
-                    }
-                </div>
-
-                <div class="article-content">
+                <div class="article-body">
                     @Html.Raw(Model.Content)
                 </div>
-
-                @if (User.Identity.IsAuthenticated && 
-                    (Model.UserId == UserManager.GetUserId(User) || 
-                     User.IsInRole("Administrator")))
-                {
-                    <div class="article-actions">
-                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">
-                            <i class="bi bi-pencil"></i> Edit Article
-                        </a>
-                        <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger">
-                            <i class="bi bi-trash"></i> Delete Article
-                        </a>
-                    </div>
-                }
             </article>
+
+            @if (User.Identity.IsAuthenticated && 
+                (Model.UserId == UserManager.GetUserId(User) || 
+                 User.IsInRole("Administrator")))
+            {
+                <div class="mt-4">
+                    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Delete
+                    </a>
+                </div>
+            }
         </div>
     </div>
 </div>
 
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        .article-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .featured-image img {
+            max-height: 500px;
+            width: 100%;
+            object-fit: cover;
+        }
+
+        .article-body {
+            font-size: 1.1rem;
+            line-height: 1.8;
+        }
+
+        .article-votes {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-group .btn {
+            padding: 0.375rem 0.75rem;
+        }
+
+        .btn-group .btn.active {
+            color: white;
+        }
+    </style>
+}
+
 @section Scripts {
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
-    <link href="~/css/article-details.css" rel="stylesheet">
+    <script>
+        function voteArticle(articleId, isUpvote) {
+            fetch(`/Articles/Vote/${articleId}?isUpvote=${isUpvote}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    return response.text().then(text => {
+                        try {
+                            const data = JSON.parse(text);
+                            alert(data.message || 'An error occurred while voting.');
+                        } catch (e) {
+                            if (text.includes('Forbidden')) {
+                                alert('You do not have permission to vote on articles.');
+                            } else {
+                                alert('An error occurred while voting.');
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while voting.');
+            });
+        }
+
+        function removeVote(articleId) {
+            fetch(`/Articles/RemoveVote/${articleId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    return response.text().then(text => {
+                        try {
+                            const data = JSON.parse(text);
+                            alert(data.message || 'An error occurred while removing your vote.');
+                        } catch (e) {
+                            if (text.includes('Forbidden')) {
+                                alert('You do not have permission to remove votes on articles.');
+                            } else {
+                                alert('An error occurred while removing your vote.');
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while removing your vote.');
+            });
+        }
+    </script>
 }

@@ -14,11 +14,13 @@ namespace Blog.Infrastructure.Entities
         public virtual User ProcessedByUser { get; set; }
         public PermissionRequestStatus Status { get; set; }
         public string? RejectionReason { get; set; }
+        public PermissionRequestType RequestType { get; set; }
 
         public PermissionRequest()
         {
             RequestedAt = DateTime.UtcNow;
             Status = PermissionRequestStatus.Pending;
+            RequestType = PermissionRequestType.WriteArticle; // Default to WriteArticle for backward compatibility
         }
     }
 
@@ -28,4 +30,10 @@ namespace Blog.Infrastructure.Entities
         Approved,
         Rejected
     }
-} 
+
+    public enum PermissionRequestType
+    {
+        WriteArticle,
+        VoteArticle
+    }
+}

@@ -37,7 +37,7 @@ namespace Blog.Core.Services
             _fileSettings = fileSettings.Value;
         }
 
-        public async Task<IEnumerable<Article>> GetPublishedArticlesAsync(string searchTerm, DateFilter dateFilter)
+        public async Task<IEnumerable<Article>> GetPublishedArticlesAsync(string searchTerm, DateFilter dateFilter, string sortBy = null)
         {
             var query = _context.Articles
                 .Include(a => a.User)
@@ -78,7 +78,33 @@ namespace Blog.Core.Services
                     break;
             }
 
-            return await query.OrderByDescending(a => a.PublishedAt).ToListAsync();
+            // Apply sorting
+            if (!string.IsNullOrEmpty(sortBy))
+            {
+                switch (sortBy.ToLower())
+                {
+                    case VoteConstants.SortOptions.Popular:
+                        query = query.OrderByDescending(a => a.UpvoteCount - a.DownvoteCount);
+                        break;
+                    case VoteConstants.SortOptions.MostUpvoted:
+                        query = query.OrderByDescending(a => a.UpvoteCount);
+                        break;
+                    case VoteConstants.SortOptions.MostDownvoted:
+                        query = query.OrderByDescending(a => a.DownvoteCount);
+                        break;
+                    case VoteConstants.SortOptions.Newest:
+                    default:
+                        query = query.OrderByDescending(a => a.PublishedAt);
+                        break;
+                }
+            }
+            else
+            {
+                // Default sort by publish date
+                query = query.OrderByDescending(a => a.PublishedAt);
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<Article> GetArticleDetailsAsync(int id)
@@ -253,6 +279,117 @@ namespace Blog.Core.Services
                     ArticleConstants.Messages.InvalidFileType, 
                     string.Join(", ", _fileSettings.AllowedImageTypes)));
             }
+        }
+
+        // Implement the voting methods
+        public async Task<bool> VoteArticleAsync(int articleId, string userId, bool isUpvote)
+        {
+            var article = await _context.Articles.FindAsync(articleId);
+            if (article == null)
+            {
+                throw new ArgumentException(ArticleConstants.Messages.ArticleNotFound);
+            }
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                throw new ArgumentException(ArticleConstants.Messages.UserNotFound);
+            }
+
+            // Check if user has permission to vote on articles
+            if (!user.CanVoteArticles && !user.IsAdmin)
+            {
+                throw new UnauthorizedAccessException("You don't have permission to vote on articles.");
+            }
+
+            // Check if user already voted for this article
+            var existingVote = await _context.ArticleVotes
+                .FirstOrDefaultAsync(v => v.ArticleId == articleId && v.UserId == userId);
+
+            if (existingVote != null)
+            {
+                // If vote type changed, update counts
+                if (existingVote.IsUpvote != isUpvote)
+                {
+                    if (isUpvote)
+                    {
+                        // Changed from downvote to upvote
+                        article.DownvoteCount--;
+                        article.UpvoteCount++;
+                    }
+                    else
+                    {
+                        // Changed from upvote to downvote
+                        article.UpvoteCount--;
+                        article.DownvoteCount++;
+                    }
+                    existingVote.IsUpvote = isUpvote;
+                }
+                // If vote type is the same, do nothing
+            }
+            else
+            {
+                // Create new vote
+                var vote = new ArticleVote
+                {
+                    ArticleId = articleId,
+                    UserId = userId,
+                    IsUpvote = isUpvote,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                // Update article vote counts
+                if (isUpvote)
+                {
+                    article.UpvoteCount++;
+                }
+                else
+                {
+                    article.DownvoteCount++;
+                }
+
+                await _context.ArticleVotes.AddAsync(vote);
+            }
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> RemoveVoteAsync(int articleId, string userId)
+        {
+            var vote = await _context.ArticleVotes
+                .FirstOrDefaultAsync(v => v.ArticleId == articleId && v.UserId == userId);
+
+            if (vote == null)
+            {
+                return false;
+            }
+
+            var article = await _context.Articles.FindAsync(articleId);
+            if (article == null)
+            {
+                throw new ArgumentException(ArticleConstants.Messages.ArticleNotFound);
+            }
+
+            // Update article vote counts
+            if (vote.IsUpvote)
+            {
+                article.UpvoteCount = Math.Max(0, article.UpvoteCount - 1);
+            }
+            else
+            {
+                article.DownvoteCount = Math.Max(0, article.DownvoteCount - 1);
+            }
+
+            _context.ArticleVotes.Remove(vote);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<ArticleVote> GetUserVoteAsync(int articleId, string userId)
+        {
+            return await _context.ArticleVotes
+                .FirstOrDefaultAsync(v => v.ArticleId == articleId && v.UserId == userId);
         }
     }
 }

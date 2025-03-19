@@ -1,5 +1,5 @@
 @{
-    ViewData["Title"] = "Request Writing Permission";
+    ViewData["Title"] = ViewBag.Title ?? "Request Permission";
 }
 
 <div class="container mt-4">
@@ -23,12 +23,23 @@
 
                     <form method="post">
                         @Html.AntiForgeryToken()
+                        @if (ViewBag.IsVoteRequest)
+                        {
+                            <input type="hidden" name="isVoteRequest" value="true" />
+                        }
                         <div class="mb-4">
-                            <label for="reason" class="form-label">Why would you like to write articles?</label>
+                            <label for="reason" class="form-label">@(ViewBag.Description ?? "Why would you like this permission?")</label>
                             <textarea class="form-control" id="reason" name="reason" rows="5" required
-                                    placeholder="Please explain why you would like to contribute articles to our blog..."></textarea>
+                                    placeholder="@(ViewBag.IsVoteRequest ? "Please explain why you would like to vote on articles..." : "Please explain why you would like to contribute articles to our blog...")"></textarea>
                             <div class="form-text">
-                                Be specific about your expertise, interests, and what kind of content you'd like to contribute.
+                                @if (ViewBag.IsVoteRequest)
+                                {
+                                    <span>Be specific about why you want to participate in rating and ranking articles.</span>
+                                }
+                                else
+                                {
+                                    <span>Be specific about your expertise, interests, and what kind of content you'd like to contribute.</span>
+                                }
                             </div>
                         </div>
 
@@ -45,4 +56,4 @@
             </div>
         </div>
     </div>
-</div> 
+</div>
