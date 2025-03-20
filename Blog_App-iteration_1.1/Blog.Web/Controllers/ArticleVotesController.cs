@@ -5,6 +5,7 @@ using Blog.Infrastructure.Entities;
 using Blog.Core.Interfaces;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Blog.Core.Constants;
 
 namespace Blog.Web.Controllers
 {
@@ -35,7 +36,7 @@ namespace Blog.Web.Controllers
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    return Unauthorized(new { success = false, message = "User not found" });
+                    return Unauthorized(new { success = false, message = PermissionConstants.Messages.UserNotFound });
                 }
 
                 // Check if user has permission to vote
@@ -62,41 +63,8 @@ namespace Blog.Web.Controllers
             }
             catch (System.Exception ex)
             {
-                _logger.LogError(ex, "Error processing vote for article {ArticleId}", articleId);
-                return StatusCode(500, new { success = false, message = "An error occurred while processing your vote." });
-            }
-        }
-
-        [HttpPost("RemoveVote/{articleId}")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RemoveVote(int articleId)
-        {
-            try
-            {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
-                {
-                    return Unauthorized(new { success = false, message = "User not found" });
-                }
-
-                var (success, message, article) = await _articleVoteService.RemoveVoteAsync(articleId, user.Id);
-                
-                if (!success)
-                {
-                    return NotFound(new { success = false, message = message });
-                }
-
-                return Json(new { 
-                    success = true, 
-                    upvotes = article.UpvoteCount, 
-                    downvotes = article.DownvoteCount,
-                    score = article.UpvoteCount - article.DownvoteCount
-                });
-            }
-            catch (System.Exception ex)
-            {
-                _logger.LogError(ex, "Error removing vote for article {ArticleId}", articleId);
-                return StatusCode(500, new { success = false, message = "An error occurred while removing your vote." });
+                _logger.LogError(ex, VoteConstants.LogMessages.ErrorProcessingVote, articleId);
+                return StatusCode(500, new { success = false, message = VoteConstants.Messages.ErrorProcessingVote });
             }
         }
     }

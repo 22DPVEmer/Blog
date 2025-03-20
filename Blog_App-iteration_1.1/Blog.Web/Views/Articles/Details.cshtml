@@ -35,13 +35,6 @@
                                                 onclick="voteArticle(@Model.Id, false)">
                                             <i class="bi bi-hand-thumbs-down"></i> @Model.DownvoteCount
                                         </button>
-                                        @if (ViewBag.UserVote != null)
-                                        {
-                                            <button type="button" class="btn btn-outline-secondary"
-                                                    onclick="removeVote(@Model.Id)">
-                                                <i class="bi bi-x-circle"></i>
-                                            </button>
-                                        }
                                     </div>
                                 }
                                 else
@@ -133,6 +126,12 @@
 @section Scripts {
     <script>
         function voteArticle(articleId, isUpvote) {
+            const isAlreadyVoted = 
+                (isUpvote && document.querySelector('.btn-outline-success.active')) ||
+                (!isUpvote && document.querySelector('.btn-outline-danger.active'));
+                
+            // Even if already voted, we'll use the same endpoint
+            // The backend will handle removing or toggling the vote
             fetch(`/Articles/Vote/${articleId}?isUpvote=${isUpvote}`, {
                 method: 'POST',
                 headers: {
@@ -161,38 +160,6 @@
             .catch(error => {
                 console.error('Error:', error);
                 alert('An error occurred while voting.');
-            });
-        }
-
-        function removeVote(articleId) {
-            fetch(`/Articles/RemoveVote/${articleId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                }
-            })
-            .then(response => {
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    return response.text().then(text => {
-                        try {
-                            const data = JSON.parse(text);
-                            alert(data.message || 'An error occurred while removing your vote.');
-                        } catch (e) {
-                            if (text.includes('Forbidden')) {
-                                alert('You do not have permission to remove votes on articles.');
-                            } else {
-                                alert('An error occurred while removing your vote.');
-                            }
-                        }
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while removing your vote.');
             });
         }
     </script>

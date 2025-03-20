@@ -9,6 +9,7 @@ using System.Linq;
 using System;
 using Blog.Web.Models;
 using Blog.Core.Interfaces;
+using Blog.Core.Constants;
 
 namespace Blog.Web.Controllers
 {
@@ -43,15 +44,15 @@ namespace Blog.Web.Controllers
 
             if (!user.IsAdmin && user.CanWriteArticles && !user.CanVoteArticles)
             {
-                TempData["InfoMessage"] = "You already have permission to write articles.";
+                TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasWritePermission;
             }
             else if (!user.IsAdmin && user.CanVoteArticles && !user.CanWriteArticles)
             {
-                TempData["InfoMessage"] = "You already have permission to vote on articles.";
+                TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasVotePermission;
             }
             else if (!user.IsAdmin && user.CanWriteArticles && user.CanVoteArticles)
             {
-                TempData["InfoMessage"] = "You have permission to write and vote on articles.";
+                TempData["InfoMessage"] = PermissionConstants.Messages.HasBothPermissions;
             }
 
             return View(requests);
@@ -59,31 +60,36 @@ namespace Blog.Web.Controllers
 
         // GET: Permissions/Request
         [HttpGet("Request")]
-        public async Task<IActionResult> Request(bool isVoteRequest = false)
+        public new async Task<IActionResult> Request(bool isVoteRequest = false)
         {
             var user = await _userManager.GetUserAsync(User);
+            
+            if (user == null)
+            {
+                return NotFound();
+            }
             
             if (isVoteRequest)
             {
                 if (user.CanVoteArticles)
                 {
-                    TempData["InfoMessage"] = "You already have permission to vote on articles.";
+                    TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasVotePermission;
                     return RedirectToAction(nameof(Index));
                 }
                 ViewBag.IsVoteRequest = true;
-                ViewBag.Title = "Request Voting Permission";
-                ViewBag.Description = "Why would you like to vote on articles?";
+                ViewBag.Title = PermissionConstants.ViewData.VoteRequest.Title;
+                ViewBag.Description = PermissionConstants.ViewData.VoteRequest.Description;
             }
             else
             {
                 if (user.CanWriteArticles)
                 {
-                    TempData["InfoMessage"] = "You already have permission to write articles.";
+                    TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasWritePermission;
                     return RedirectToAction(nameof(Index));
                 }
                 ViewBag.IsVoteRequest = false;
-                ViewBag.Title = "Request Writing Permission";
-                ViewBag.Description = "Why would you like to write articles?";
+                ViewBag.Title = PermissionConstants.ViewData.WriteRequest.Title;
+                ViewBag.Description = PermissionConstants.ViewData.WriteRequest.Description;
             }
             
             return View();
@@ -92,24 +98,24 @@ namespace Blog.Web.Controllers
         // POST: Permissions/Request
         [HttpPost("Request")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Request([FromForm] string reason, [FromForm] bool isVoteRequest = false)
+        public new async Task<IActionResult> Request([FromForm] string reason, [FromForm] bool isVoteRequest = false)
         {
             if (string.IsNullOrWhiteSpace(reason))
             {
-                ModelState.AddModelError("", "Please provide a reason for your request.");
+                ModelState.AddModelError("", PermissionConstants.Messages.EmptyReason);
                 
                 // Set ViewBag values for the view
                 if (isVoteRequest)
                 {
                     ViewBag.IsVoteRequest = true;
-                    ViewBag.Title = "Request Voting Permission";
-                    ViewBag.Description = "Why would you like to vote on articles?";
+                    ViewBag.Title = PermissionConstants.ViewData.VoteRequest.Title;
+                    ViewBag.Description = PermissionConstants.ViewData.VoteRequest.Description;
                 }
                 else
                 {
                     ViewBag.IsVoteRequest = false;
-                    ViewBag.Title = "Request Writing Permission";
-                    ViewBag.Description = "Why would you like to write articles?";
+                    ViewBag.Title = PermissionConstants.ViewData.WriteRequest.Title;
+                    ViewBag.Description = PermissionConstants.ViewData.WriteRequest.Description;
                 }
                 
                 return View();
@@ -125,17 +131,17 @@ namespace Blog.Web.Controllers
             {
                 if (user.CanVoteArticles)
                 {
-                    TempData["InfoMessage"] = "You already have permission to vote on articles.";
+                    TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasVotePermission;
                     return RedirectToAction(nameof(Index));
                 }
 
                 var hasPendingVoteRequest = await _permissionService.HasPendingVoteRequestAsync(user.Id);
                 if (hasPendingVoteRequest)
                 {
-                    ModelState.AddModelError("", "You already have a pending vote permission request.");
+                    ModelState.AddModelError("", PermissionConstants.Messages.PendingVoteRequest);
                     ViewBag.IsVoteRequest = true;
-                    ViewBag.Title = "Request Voting Permission";
-                    ViewBag.Description = "Why would you like to vote on articles?";
+                    ViewBag.Title = PermissionConstants.ViewData.VoteRequest.Title;
+                    ViewBag.Description = PermissionConstants.ViewData.VoteRequest.Description;
                     return View();
                 }
             }
@@ -143,31 +149,33 @@ namespace Blog.Web.Controllers
             {
                 if (user.CanWriteArticles)
                 {
-                    TempData["InfoMessage"] = "You already have permission to write articles.";
+                    TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasWritePermission;
                     return RedirectToAction(nameof(Index));
                 }
 
                 var hasPendingRequest = await _permissionService.HasPendingRequestAsync(user.Id);
                 if (hasPendingRequest)
                 {
-                    ModelState.AddModelError("", "You already have a pending write permission request.");
+                    ModelState.AddModelError("", PermissionConstants.Messages.PendingWriteRequest);
                     ViewBag.IsVoteRequest = false;
-                    ViewBag.Title = "Request Writing Permission";
-                    ViewBag.Description = "Why would you like to write articles?";
+                    ViewBag.Title = PermissionConstants.ViewData.WriteRequest.Title;
+                    ViewBag.Description = PermissionConstants.ViewData.WriteRequest.Description;
                     return View();
                 }
             }
 
             await _permissionService.CreatePermissionRequestAsync(user.Id, reason, isVoteRequest);
 
-            TempData["SuccessMessage"] = $"Your {(isVoteRequest ? "voting" : "writing")} permission request has been submitted successfully.";
+            TempData["SuccessMessage"] = string.Format(
+                PermissionConstants.Messages.PermissionRequestSuccess, 
+                isVoteRequest ? PermissionConstants.PermissionType.Voting : PermissionConstants.PermissionType.Writing);
             return RedirectToAction(nameof(Index));
         }
 
         // POST: Permissions/Process
         [HttpPost("Process")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Process(int id, bool approved, string rejectionReason = null)
+        public async Task<IActionResult> Process(int id, bool approved, string? rejectionReason = null)
         {
             var admin = await _userManager.GetUserAsync(User);
             if (admin == null || !admin.IsAdmin)
@@ -175,9 +183,11 @@ namespace Blog.Web.Controllers
                 return Forbid();
             }
 
-            await _permissionService.ProcessPermissionRequestAsync(id, admin.Id, approved, rejectionReason);
+            await _permissionService.ProcessPermissionRequestAsync(id, admin.Id, approved, rejectionReason ?? string.Empty);
 
-            TempData["SuccessMessage"] = $"Request has been {(approved ? "approved" : "rejected")} successfully.";
+            TempData["SuccessMessage"] = string.Format(
+                PermissionConstants.Messages.RequestProcessed, 
+                approved ? PermissionConstants.ApprovalStatus.Approved : PermissionConstants.ApprovalStatus.Rejected);
             return RedirectToAction(nameof(Index));
         }
     }

@@ -11,11 +11,6 @@ namespace Blog.Core.Interfaces
         Task<(bool success, string message, Article article)> VoteArticleAsync(int articleId, string userId, bool isUpvote);
 
         /// <summary>
-        /// Removes a vote from an article
-        /// </summary>
-        Task<(bool success, string message, Article article)> RemoveVoteAsync(int articleId, string userId);
-
-        /// <summary>
         /// Gets a user's vote for an article
         /// </summary>
         Task<ArticleVote> GetUserVoteAsync(int articleId, string userId);

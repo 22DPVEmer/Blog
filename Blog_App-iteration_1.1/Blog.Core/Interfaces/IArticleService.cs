@@ -16,7 +16,6 @@ public interface IArticleService
     
     // Article voting methods
     Task<bool> VoteArticleAsync(int articleId, string userId, bool isUpvote);
-    Task<bool> RemoveVoteAsync(int articleId, string userId);
     Task<ArticleVote> GetUserVoteAsync(int articleId, string userId);
 }
 }

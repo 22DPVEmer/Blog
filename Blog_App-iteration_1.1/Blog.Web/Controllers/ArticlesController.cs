@@ -276,35 +276,5 @@ namespace Blog.Web.Controllers
                 return RedirectToAction(nameof(Details), new { id });
             }
         }
-
-        // POST: Articles/RemoveVote/5
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize]
-        public async Task<IActionResult> RemoveVote(int id)
-        {
-            try
-            {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
-                {
-                    return Unauthorized(new { message = ArticleConstants.Messages.UserNotFound });
-                }
-
-                if (!user.CanVoteArticles && !user.IsAdmin)
-                {
-                    return Forbid();
-                }
-
-                await _articleService.RemoveVoteAsync(id, user.Id);
-                return RedirectToAction(nameof(Details), new { id });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error removing vote for article {ArticleId}", id);
-                TempData["ErrorMessage"] = "An error occurred while removing your vote.";
-                return RedirectToAction(nameof(Details), new { id });
-            }
-        }
     }
 }

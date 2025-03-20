@@ -27,12 +27,12 @@ namespace Blog.Core.Services
             var user = await _context.Users.FindAsync(userId);
             if (user == null)
             {
-                return (false, VoteConstants.Messages.UserNotFound);
+                return (false, PermissionConstants.Messages.UserNotFound);
             }
 
             if (!user.CanVoteArticles && !user.IsAdmin)
             {
-                return (false, VoteConstants.Messages.NoVotePermission);
+                return (false, PermissionConstants.Messages.NoVotePermission);
             }
 
             return (true, string.Empty);
@@ -42,35 +42,6 @@ namespace Blog.Core.Services
         {
             return await _context.ArticleVotes
                 .FirstOrDefaultAsync(v => v.ArticleId == articleId && v.UserId == userId);
-        }
-
-        public async Task<(bool success, string message, Article article)> RemoveVoteAsync(int articleId, string userId)
-        {
-            try
-            {
-                var vote = await GetUserVoteAsync(articleId, userId);
-                if (vote == null)
-                {
-                    return (false, VoteConstants.Messages.VoteNotFound, null);
-                }
-
-                var article = await _context.Articles.FindAsync(articleId);
-                if (article == null)
-                {
-                    return (false, VoteConstants.Messages.ArticleNotFound, null);
-                }
-
-                await UpdateArticleVoteCountsOnRemoval(article, vote.IsUpvote);
-                _context.ArticleVotes.Remove(vote);
-                await _context.SaveChangesAsync();
-
-                return (true, VoteConstants.Messages.VoteRemoved, article);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, VoteConstants.LogMessages.ErrorRemovingVote, articleId);
-                return (false, VoteConstants.Messages.ErrorRemovingVote, null);
-            }
         }
 
         public async Task<(bool success, string message, Article article)> VoteArticleAsync(int articleId, string userId, bool isUpvote)
@@ -86,7 +57,15 @@ namespace Blog.Core.Services
                 var existingVote = await GetUserVoteAsync(articleId, userId);
                 if (existingVote != null)
                 {
-                    await HandleExistingVote(article, existingVote, isUpvote);
+                    if (existingVote.IsUpvote == isUpvote)
+                    {
+                        await UpdateArticleVoteCountsOnRemoval(article, existingVote.IsUpvote);
+                        _context.ArticleVotes.Remove(existingVote);
+                    }
+                    else
+                    {
+                        await HandleExistingVote(article, existingVote, isUpvote);
+                    }
                 }
                 else
                 {
