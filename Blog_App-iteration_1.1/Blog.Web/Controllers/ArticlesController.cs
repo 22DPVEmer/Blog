@@ -25,7 +25,7 @@ namespace Blog.Web.Controllers
         }
 
         // GET: Articles - Allow all users to view articles
-        public async Task<IActionResult> Index([FromQuery] string searchTerm, [FromQuery] string dateFilterStr = "All")
+        public async Task<IActionResult> Index([FromQuery] string searchTerm, [FromQuery] string dateFilterStr = "All", [FromQuery] string sortBy = null)
         {
             try
             {
@@ -39,8 +39,9 @@ namespace Blog.Web.Controllers
                     }
                 }
 
-                var articles = await _articleService.GetPublishedArticlesAsync(searchTerm, dateFilter);
+                var articles = await _articleService.GetPublishedArticlesAsync(searchTerm, dateFilter, sortBy);
                 ViewBag.CurrentDateFilter = dateFilterStr; // Keep the current filter for the view
+                ViewBag.CurrentSortBy = sortBy; // Keep the current sort for the view
                 return View(articles);
             }
             catch (Exception ex)
@@ -63,6 +64,14 @@ namespace Blog.Web.Controllers
             if (article == null)
             {
                 return NotFound();
+            }
+
+            // Get the current user's vote for this article if logged in
+            if (User.Identity.IsAuthenticated)
+            {
+                var user = await _userManager.GetUserAsync(User);
+                ViewBag.UserVote = await _articleService.GetUserVoteAsync(id.Value, user.Id);
+                ViewBag.UserCanVoteArticles = user.CanVoteArticles || user.IsAdmin;
             }
 
             return View(article);
@@ -230,6 +239,41 @@ namespace Blog.Web.Controllers
             {
                 _logger.LogError(ex, LogConstants.Articles.ImageUploadError);
                 return StatusCode(500, new { message = $"{ArticleConstants.Messages.ImageUploadError}: {ex.Message}" });
+            }
+        }
+
+        // POST: Articles/Vote/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize]
+        public async Task<IActionResult> Vote(int id, bool isUpvote)
+        {
+            try
+            {
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized(new { message = ArticleConstants.Messages.UserNotFound });
+                }
+
+                if (!user.CanVoteArticles && !user.IsAdmin)
+                {
+                    return Forbid();
+                }
+
+                await _articleService.VoteArticleAsync(id, user.Id, isUpvote);
+                return RedirectToAction(nameof(Details), new { id });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                TempData["ErrorMessage"] = "You don't have permission to rank articles.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error voting for article {ArticleId}", id);
+                TempData["ErrorMessage"] = "An error occurred while voting for the article.";
+                return RedirectToAction(nameof(Details), new { id });
             }
         }
     }

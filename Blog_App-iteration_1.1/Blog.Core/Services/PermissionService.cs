@@ -38,15 +38,22 @@ namespace Blog.Core.Services
         public async Task<bool> HasPendingRequestAsync(string userId)
         {
             return await _context.PermissionRequests
-                .AnyAsync(pr => pr.UserId == userId && pr.Status == PermissionRequestStatus.Pending);
+                .AnyAsync(pr => pr.UserId == userId && pr.Status == PermissionRequestStatus.Pending && pr.RequestType == PermissionRequestType.WriteArticle);
         }
 
-        public async Task CreatePermissionRequestAsync(string userId, string reason)
+        public async Task<bool> HasPendingVoteRequestAsync(string userId)
+        {
+            return await _context.PermissionRequests
+                .AnyAsync(pr => pr.UserId == userId && pr.Status == PermissionRequestStatus.Pending && pr.RequestType == PermissionRequestType.VoteArticle);
+        }
+
+        public async Task CreatePermissionRequestAsync(string userId, string reason, bool isVotePermission = false)
         {
             var request = new PermissionRequest
             {
                 UserId = userId,
-                Reason = reason
+                Reason = reason,
+                RequestType = isVotePermission ? PermissionRequestType.VoteArticle : PermissionRequestType.WriteArticle
             };
 
             _context.PermissionRequests.Add(request);
@@ -72,7 +79,14 @@ namespace Blog.Core.Services
 
             if (approved)
             {
-                request.User.CanWriteArticles = true;
+                if (request.RequestType == PermissionRequestType.WriteArticle)
+                {
+                    request.User.CanWriteArticles = true;
+                }
+                else if (request.RequestType == PermissionRequestType.VoteArticle)
+                {
+                    request.User.CanVoteArticles = true;
+                }
             }
 
             await _context.SaveChangesAsync();

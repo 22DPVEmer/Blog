@@ -26,12 +26,21 @@
                 </div>
             }
 
-            @if (!ViewBag.IsAdmin && !ViewBag.CanWriteArticles)
+            @if (!ViewBag.IsAdmin)
             {
-                <div class="mb-4">
-                    <a asp-action="Request" class="btn btn-primary">
-                        <i class="bi bi-plus-circle"></i> Request Writing Permission
-                    </a>
+                <div class="mb-4 d-flex gap-2">
+                    @if (!ViewBag.CanWriteArticles)
+                    {
+                        <a asp-action="Request" asp-route-isVoteRequest="false" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Request Writing Permission
+                        </a>
+                    }
+                    @if (!ViewBag.CanVoteArticles)
+                    {
+                        <a asp-action="Request" asp-route-isVoteRequest="true" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Request Voting Permission
+                        </a>
+                    }
                 </div>
             }
 
@@ -243,4 +252,4 @@
             rejectionReasonModal.show();
         }
     </script>
-} 
+}

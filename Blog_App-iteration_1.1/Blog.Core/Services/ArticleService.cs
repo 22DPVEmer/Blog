@@ -37,7 +37,7 @@ namespace Blog.Core.Services
             _fileSettings = fileSettings.Value;
         }
 
-        public async Task<IEnumerable<Article>> GetPublishedArticlesAsync(string searchTerm, DateFilter dateFilter)
+        public async Task<IEnumerable<Article>> GetPublishedArticlesAsync(string searchTerm, DateFilter dateFilter, string sortBy = null)
         {
             var query = _context.Articles
                 .Include(a => a.User)
@@ -78,7 +78,33 @@ namespace Blog.Core.Services
                     break;
             }
 
-            return await query.OrderByDescending(a => a.PublishedAt).ToListAsync();
+            // Apply sorting
+            if (!string.IsNullOrEmpty(sortBy))
+            {
+                switch (sortBy.ToLower())
+                {
+                    case VoteConstants.SortOptions.Popular:
+                        query = query.OrderByDescending(a => a.UpvoteCount - a.DownvoteCount);
+                        break;
+                    case VoteConstants.SortOptions.MostUpvoted:
+                        query = query.OrderByDescending(a => a.UpvoteCount);
+                        break;
+                    case VoteConstants.SortOptions.MostDownvoted:
+                        query = query.OrderByDescending(a => a.DownvoteCount);
+                        break;
+                    case VoteConstants.SortOptions.Newest:
+                    default:
+                        query = query.OrderByDescending(a => a.PublishedAt);
+                        break;
+                }
+            }
+            else
+            {
+                // Default sort by publish date
+                query = query.OrderByDescending(a => a.PublishedAt);
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<Article> GetArticleDetailsAsync(int id)
@@ -103,21 +129,24 @@ namespace Blog.Core.Services
             _context.Articles.Add(article);
             await _context.SaveChangesAsync();
 
-            // Handle featured image upload if provided
-            try
+            // Handle featured image upload if provided and not null
+            if (model.FeaturedImageFile != null && model.FeaturedImageFile.Length > 0)
             {
-                ValidateImageFile(model.FeaturedImageFile);
-                // Queue the featured image upload and wait for the URL
-                article.FeaturedImage = await _imageProcessingService.QueueImageUploadAsync(
-                    model.FeaturedImageFile, 
-                    ArticleConstants.ImageType.Featured, 
-                    true,
-                    article.Id);
-                await _context.SaveChangesAsync();
-            }
-            catch (ArgumentException)
-            {
-                // If validation fails, just continue without setting the image
+                try
+                {
+                    ValidateImageFile(model.FeaturedImageFile);
+                    // Queue the featured image upload and wait for the URL
+                    article.FeaturedImage = await _imageProcessingService.QueueImageUploadAsync(
+                        model.FeaturedImageFile, 
+                        ArticleConstants.ImageType.Featured, 
+                        true,
+                        article.Id);
+                    await _context.SaveChangesAsync();
+                }
+                catch (ArgumentException)
+                {
+                    // If validation fails, just continue without setting the image
+                }
             }
 
             return article;
@@ -137,36 +166,39 @@ namespace Blog.Core.Services
                 throw new UnauthorizedAccessException(ArticleConstants.Messages.UnauthorizedEdit);
             }
 
-            // Handle featured image upload if provided
-            try
+            // Handle featured image upload if provided and not null
+            if (model.FeaturedImageFile != null && model.FeaturedImageFile.Length > 0)
             {
-                ValidateImageFile(model.FeaturedImageFile);
-
-                // Delete old featured image if it exists
-                if (!string.IsNullOrEmpty(existingArticle.FeaturedImage) && 
-                    existingArticle.FeaturedImage != ArticleConstants.ImageStatus.Processing)
+                try
                 {
-                    try
-                    {
-                        await _firebaseStorageService.DeleteImageAsync(existingArticle.FeaturedImage);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, ArticleConstants.LoggerMessages.FailedToDeleteFeaturedImage, id);
-                        // Continue with upload even if deletion fails
-                    }
-                }
+                    ValidateImageFile(model.FeaturedImageFile);
 
-                // Queue the new featured image upload and wait for the URL
-                existingArticle.FeaturedImage = await _imageProcessingService.QueueImageUploadAsync(
-                    model.FeaturedImageFile, 
-                    ArticleConstants.ImageType.Featured, 
-                    true,
-                    existingArticle.Id);
-            }
-            catch (ArgumentException)
-            {
-                // If validation fails, just continue without setting the image
+                    // Delete old featured image if it exists
+                    if (!string.IsNullOrEmpty(existingArticle.FeaturedImage) && 
+                        existingArticle.FeaturedImage != ArticleConstants.ImageStatus.Processing)
+                    {
+                        try
+                        {
+                            await _firebaseStorageService.DeleteImageAsync(existingArticle.FeaturedImage);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, ArticleConstants.LoggerMessages.FailedToDeleteFeaturedImage, id);
+                            // Continue with upload even if deletion fails
+                        }
+                    }
+
+                    // Queue the new featured image upload and wait for the URL
+                    existingArticle.FeaturedImage = await _imageProcessingService.QueueImageUploadAsync(
+                        model.FeaturedImageFile, 
+                        ArticleConstants.ImageType.Featured, 
+                        true,
+                        existingArticle.Id);
+                }
+                catch (ArgumentException)
+                {
+                    // If validation fails, just continue without setting the image
+                }
             }
 
             // Update article properties
@@ -216,6 +248,11 @@ namespace Blog.Core.Services
 
         public async Task<string> UploadImageAsync(IFormFile file, bool isFeatured)
         {
+            if (file == null || file.Length == 0)
+            {
+                throw new ArgumentException(ArticleConstants.Messages.ImageUploadError);
+            }
+            
             ValidateImageFile(file);
 
             // Determine subfolder based on image type
@@ -227,12 +264,13 @@ namespace Blog.Core.Services
 
         private void ValidateImageFile(IFormFile file)
         {
-            // Check if file is null or empty
+            // Return early if file is null - no validation needed
             if (file == null)
             {
-                return; // Skip validation if file is null
+                return;
             }
             
+            // Check if file is empty
             if (file.Length == 0)
             {
                 throw new ArgumentException(ArticleConstants.Messages.ImageUploadError);
@@ -253,6 +291,102 @@ namespace Blog.Core.Services
                     ArticleConstants.Messages.InvalidFileType, 
                     string.Join(", ", _fileSettings.AllowedImageTypes)));
             }
+        }
+
+        // Implement the voting methods
+        public async Task<bool> VoteArticleAsync(int articleId, string userId, bool isUpvote)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                throw new UnauthorizedAccessException(PermissionConstants.Messages.UserNotFound);
+            }
+
+            if (!user.CanVoteArticles && !user.IsAdmin)
+            {
+                throw new UnauthorizedAccessException(PermissionConstants.Messages.UnauthorizedVote);
+            }
+
+            var article = await _context.Articles.FindAsync(articleId);
+            if (article == null)
+            {
+                throw new ArgumentException(VoteConstants.Messages.ArticleNotFound);
+            }
+
+            // Check if user already voted for this article
+            var existingVote = await _context.ArticleVotes
+                .FirstOrDefaultAsync(v => v.ArticleId == articleId && v.UserId == userId);
+
+            if (existingVote != null)
+            {
+                // If same vote type, remove the vote (toggle off)
+                if (existingVote.IsUpvote == isUpvote)
+                {
+                    // Update article vote counts
+                    if (existingVote.IsUpvote)
+                    {
+                        article.UpvoteCount = Math.Max(0, article.UpvoteCount - 1);
+                    }
+                    else
+                    {
+                        article.DownvoteCount = Math.Max(0, article.DownvoteCount - 1);
+                    }
+
+                    _context.ArticleVotes.Remove(existingVote);
+                    await _context.SaveChangesAsync();
+                    return true;
+                }
+                
+                // If vote type changed, update counts
+                if (existingVote.IsUpvote != isUpvote)
+                {
+                    if (isUpvote)
+                    {
+                        // Changed from downvote to upvote
+                        article.DownvoteCount--;
+                        article.UpvoteCount++;
+                    }
+                    else
+                    {
+                        // Changed from upvote to downvote
+                        article.UpvoteCount--;
+                        article.DownvoteCount++;
+                    }
+                    existingVote.IsUpvote = isUpvote;
+                }
+            }
+            else
+            {
+                // Create new vote
+                var vote = new ArticleVote
+                {
+                    ArticleId = articleId,
+                    UserId = userId,
+                    IsUpvote = isUpvote,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                // Update article vote counts
+                if (isUpvote)
+                {
+                    article.UpvoteCount++;
+                }
+                else
+                {
+                    article.DownvoteCount++;
+                }
+
+                await _context.ArticleVotes.AddAsync(vote);
+            }
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<ArticleVote> GetUserVoteAsync(int articleId, string userId)
+        {
+            return await _context.ArticleVotes
+                .FirstOrDefaultAsync(v => v.ArticleId == articleId && v.UserId == userId);
         }
     }
 }
