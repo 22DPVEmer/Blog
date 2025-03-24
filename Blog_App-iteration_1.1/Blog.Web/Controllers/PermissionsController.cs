@@ -37,22 +37,30 @@ namespace Blog.Web.Controllers
             ViewBag.IsAdmin = user.IsAdmin;
             ViewBag.CanWriteArticles = user.CanWriteArticles;
             ViewBag.CanVoteArticles = user.CanVoteArticles;
+            ViewBag.CanCommentArticles = user.CanCommentArticles;
 
             var requests = user.IsAdmin
                 ? await _permissionService.GetAdminPermissionRequestsAsync()
                 : await _permissionService.GetUserPermissionRequestsAsync(user.Id);
 
-            if (!user.IsAdmin && user.CanWriteArticles && !user.CanVoteArticles)
+            if (!user.IsAdmin)
             {
-                TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasWritePermission;
-            }
-            else if (!user.IsAdmin && user.CanVoteArticles && !user.CanWriteArticles)
-            {
-                TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasVotePermission;
-            }
-            else if (!user.IsAdmin && user.CanWriteArticles && user.CanVoteArticles)
-            {
-                TempData["InfoMessage"] = PermissionConstants.Messages.HasBothPermissions;
+                if (user.CanWriteArticles && !user.CanVoteArticles && !user.CanCommentArticles)
+                {
+                    TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasWritePermission;
+                }
+                else if (user.CanVoteArticles && !user.CanWriteArticles && !user.CanCommentArticles)
+                {
+                    TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasVotePermission;
+                }
+                else if (user.CanCommentArticles && !user.CanWriteArticles && !user.CanVoteArticles)
+                {
+                    TempData["InfoMessage"] = CommentConstants.Messages.AlreadyHasCommentPermission;
+                }
+                else if (user.CanWriteArticles && user.CanVoteArticles && user.CanCommentArticles)
+                {
+                    TempData["InfoMessage"] = PermissionConstants.Messages.HasAllPermissions;
+                }
             }
 
             return View(requests);
@@ -60,7 +68,7 @@ namespace Blog.Web.Controllers
 
         // GET: Permissions/Request
         [HttpGet("Request")]
-        public new async Task<IActionResult> Request(bool isVoteRequest = false)
+        public new async Task<IActionResult> Request(string type = "write")
         {
             var user = await _userManager.GetUserAsync(User);
             
@@ -69,25 +77,36 @@ namespace Blog.Web.Controllers
                 return NotFound();
             }
             
-            if (isVoteRequest)
+            if (type == "vote")
             {
                 if (user.CanVoteArticles)
                 {
                     TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasVotePermission;
                     return RedirectToAction(nameof(Index));
                 }
-                ViewBag.IsVoteRequest = true;
+                ViewBag.PermissionType = "vote";
                 ViewBag.Title = PermissionConstants.ViewData.VoteRequest.Title;
                 ViewBag.Description = PermissionConstants.ViewData.VoteRequest.Description;
             }
-            else
+            else if (type == "comment")
+            {
+                if (user.CanCommentArticles)
+                {
+                    TempData["InfoMessage"] = CommentConstants.Messages.AlreadyHasCommentPermission;
+                    return RedirectToAction(nameof(Index));
+                }
+                ViewBag.PermissionType = "comment";
+                ViewBag.Title = PermissionConstants.ViewData.CommentRequest.Title;
+                ViewBag.Description = PermissionConstants.ViewData.CommentRequest.Description;
+            }
+            else // default to write request
             {
                 if (user.CanWriteArticles)
                 {
                     TempData["InfoMessage"] = PermissionConstants.Messages.AlreadyHasWritePermission;
                     return RedirectToAction(nameof(Index));
                 }
-                ViewBag.IsVoteRequest = false;
+                ViewBag.PermissionType = "write";
                 ViewBag.Title = PermissionConstants.ViewData.WriteRequest.Title;
                 ViewBag.Description = PermissionConstants.ViewData.WriteRequest.Description;
             }
@@ -98,22 +117,28 @@ namespace Blog.Web.Controllers
         // POST: Permissions/Request
         [HttpPost("Request")]
         [ValidateAntiForgeryToken]
-        public new async Task<IActionResult> Request([FromForm] string reason, [FromForm] bool isVoteRequest = false)
+        public new async Task<IActionResult> Request([FromForm] string reason, [FromForm] string type = "write")
         {
             if (string.IsNullOrWhiteSpace(reason))
             {
                 ModelState.AddModelError("", PermissionConstants.Messages.EmptyReason);
                 
                 // Set ViewBag values for the view
-                if (isVoteRequest)
+                if (type == "vote")
                 {
-                    ViewBag.IsVoteRequest = true;
+                    ViewBag.PermissionType = "vote";
                     ViewBag.Title = PermissionConstants.ViewData.VoteRequest.Title;
                     ViewBag.Description = PermissionConstants.ViewData.VoteRequest.Description;
                 }
-                else
+                else if (type == "comment")
                 {
-                    ViewBag.IsVoteRequest = false;
+                    ViewBag.PermissionType = "comment";
+                    ViewBag.Title = PermissionConstants.ViewData.CommentRequest.Title;
+                    ViewBag.Description = PermissionConstants.ViewData.CommentRequest.Description;
+                }
+                else // default to write request
+                {
+                    ViewBag.PermissionType = "write";
                     ViewBag.Title = PermissionConstants.ViewData.WriteRequest.Title;
                     ViewBag.Description = PermissionConstants.ViewData.WriteRequest.Description;
                 }
@@ -127,6 +152,9 @@ namespace Blog.Web.Controllers
                 return NotFound();
             }
 
+            bool isVoteRequest = type == "vote";
+            bool isCommentRequest = type == "comment";
+            
             if (isVoteRequest)
             {
                 if (user.CanVoteArticles)
@@ -139,13 +167,31 @@ namespace Blog.Web.Controllers
                 if (hasPendingVoteRequest)
                 {
                     ModelState.AddModelError("", PermissionConstants.Messages.PendingVoteRequest);
-                    ViewBag.IsVoteRequest = true;
+                    ViewBag.PermissionType = "vote";
                     ViewBag.Title = PermissionConstants.ViewData.VoteRequest.Title;
                     ViewBag.Description = PermissionConstants.ViewData.VoteRequest.Description;
                     return View();
                 }
             }
-            else
+            else if (isCommentRequest)
+            {
+                if (user.CanCommentArticles)
+                {
+                    TempData["InfoMessage"] = CommentConstants.Messages.AlreadyHasCommentPermission;
+                    return RedirectToAction(nameof(Index));
+                }
+
+                var hasPendingCommentRequest = await _permissionService.HasPendingCommentRequestAsync(user.Id);
+                if (hasPendingCommentRequest)
+                {
+                    ModelState.AddModelError("", CommentConstants.Messages.PendingCommentRequest);
+                    ViewBag.PermissionType = "comment";
+                    ViewBag.Title = PermissionConstants.ViewData.CommentRequest.Title;
+                    ViewBag.Description = PermissionConstants.ViewData.CommentRequest.Description;
+                    return View();
+                }
+            }
+            else // Write request
             {
                 if (user.CanWriteArticles)
                 {
@@ -153,22 +199,29 @@ namespace Blog.Web.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                var hasPendingRequest = await _permissionService.HasPendingRequestAsync(user.Id);
-                if (hasPendingRequest)
+                var hasPendingWriteRequest = await _permissionService.HasPendingRequestAsync(user.Id);
+                if (hasPendingWriteRequest)
                 {
                     ModelState.AddModelError("", PermissionConstants.Messages.PendingWriteRequest);
-                    ViewBag.IsVoteRequest = false;
+                    ViewBag.PermissionType = "write";
                     ViewBag.Title = PermissionConstants.ViewData.WriteRequest.Title;
                     ViewBag.Description = PermissionConstants.ViewData.WriteRequest.Description;
                     return View();
                 }
             }
 
-            await _permissionService.CreatePermissionRequestAsync(user.Id, reason, isVoteRequest);
+            await _permissionService.CreatePermissionRequestAsync(user.Id, reason, isVoteRequest, isCommentRequest);
 
+            string permissionType = isVoteRequest 
+                ? PermissionConstants.PermissionType.Voting 
+                : (isCommentRequest 
+                    ? PermissionConstants.PermissionType.Commenting 
+                    : PermissionConstants.PermissionType.Writing);
+                    
             TempData["SuccessMessage"] = string.Format(
                 PermissionConstants.Messages.PermissionRequestSuccess, 
-                isVoteRequest ? PermissionConstants.PermissionType.Voting : PermissionConstants.PermissionType.Writing);
+                permissionType);
+                
             return RedirectToAction(nameof(Index));
         }
 

@@ -48,6 +48,10 @@ builder.Services.AddScoped<IEmailSender, EmailSenderService>();
 builder.Services.AddScoped<IFirebaseStorageService, FirebaseStorageService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IArticleVoteService, ArticleVoteService>();
+builder.Services.AddScoped<ICommentService, CommentService>();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Add Image Processing Background Service
 builder.Services.AddSingleton<ImageProcessingBackgroundService>();
@@ -92,6 +96,9 @@ app.UseAuthorization();
 
 // Enable session
 app.UseSession();
+
+// Map SignalR Hubs
+app.MapHub<Blog.Web.Hubs.CommentHub>("/commentHub");
 
 app.MapControllerRoute(
     name: "default",

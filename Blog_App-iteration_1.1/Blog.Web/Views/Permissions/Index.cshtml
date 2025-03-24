@@ -31,14 +31,20 @@
                 <div class="mb-4 d-flex gap-2">
                     @if (!ViewBag.CanWriteArticles)
                     {
-                        <a asp-action="Request" asp-route-isVoteRequest="false" class="btn btn-primary">
+                        <a asp-action="Request" asp-route-type="write" class="btn btn-primary">
                             <i class="bi bi-plus-circle"></i> Request Writing Permission
                         </a>
                     }
                     @if (!ViewBag.CanVoteArticles)
                     {
-                        <a asp-action="Request" asp-route-isVoteRequest="true" class="btn btn-success">
+                        <a asp-action="Request" asp-route-type="vote" class="btn btn-success">
                             <i class="bi bi-plus-circle"></i> Request Voting Permission
+                        </a>
+                    }
+                    @if (!ViewBag.CanCommentArticles)
+                    {
+                        <a asp-action="Request" asp-route-type="comment" class="btn btn-info">
+                            <i class="bi bi-plus-circle"></i> Request Comment Permission
                         </a>
                     }
                 </div>

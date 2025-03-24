@@ -10,6 +10,7 @@ namespace Blog.Core.Constants
             public const string AlreadyHasWritePermission = "You already have permission to write articles.";
             public const string AlreadyHasVotePermission = "You already have permission to vote on articles.";
             public const string HasBothPermissions = "You already have both write and vote permissions.";
+            public const string HasAllPermissions = "You have all available permissions.";
             public const string PermissionRequestSuccess = "Your {0} permission request has been submitted successfully.";
             public const string RequestProcessed = "The permission request has been {0}.";
             public const string NoVotePermission = "You don't have permission to vote on articles.";
@@ -30,12 +31,19 @@ namespace Blog.Core.Constants
                 public const string Title = "Request Writing Permission";
                 public const string Description = "Why would you like to write articles?";
             }
+            
+            public static class CommentRequest
+            {
+                public const string Title = "Request Comment Permission";
+                public const string Description = "Why would you like to comment on articles?";
+            }
         }
 
         public static class PermissionType
         {
             public const string Voting = "voting";
             public const string Writing = "writing";
+            public const string Commenting = "commenting";
         }
 
         public static class ApprovalStatus
