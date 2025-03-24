@@ -36,7 +36,7 @@ namespace Blog.Core.Services
             {
                 var comments = await _context.Comments
                     .Include(c => c.User)
-                    .Where(c => c.ArticleId == articleId && !c.IsDeleted)
+                    .Where(c => c.ArticleId == articleId)
                     .OrderBy(c => c.CreatedAt)
                     .ToListAsync();
 
@@ -64,7 +64,7 @@ namespace Blog.Core.Services
         {
             var comment = await _context.Comments
                 .Include(c => c.User)
-                .FirstOrDefaultAsync(c => c.Id == commentId && !c.IsDeleted);
+                .FirstOrDefaultAsync(c => c.Id == commentId);
 
             if (comment == null)
             {
@@ -108,7 +108,7 @@ namespace Blog.Core.Services
             if (model.ParentCommentId.HasValue)
             {
                 var parentComment = await _context.Comments.FindAsync(model.ParentCommentId.Value);
-                if (parentComment == null || parentComment.IsDeleted)
+                if (parentComment == null)
                 {
                     throw new ArgumentException(CommentConstants.Messages.CommentNotFound);
                 }
@@ -160,7 +160,7 @@ namespace Blog.Core.Services
 
             var comment = await _context.Comments
                 .Include(c => c.User)
-                .FirstOrDefaultAsync(c => c.Id == model.Id && !c.IsDeleted);
+                .FirstOrDefaultAsync(c => c.Id == model.Id);
 
             if (comment == null)
             {
@@ -200,7 +200,7 @@ namespace Blog.Core.Services
             }
 
             var comment = await _context.Comments.FindAsync(commentId);
-            if (comment == null || comment.IsDeleted)
+            if (comment == null)
             {
                 return false;
             }
@@ -214,25 +214,23 @@ namespace Blog.Core.Services
             // Check if this is a parent comment (has no ParentCommentId)
             bool isParentComment = comment.ParentCommentId == null;
             
-            // If this is a parent comment, also mark all replies as deleted
+            // If this is a parent comment, also remove all replies
             if (isParentComment)
             {
                 // Find all child comments (replies) for this parent comment
                 var childComments = await _context.Comments
-                    .Where(c => c.ParentCommentId == commentId && !c.IsDeleted)
+                    .Where(c => c.ParentCommentId == commentId)
                     .ToListAsync();
                 
-                // Mark all child comments as deleted
-                foreach (var childComment in childComments)
+                // Remove all child comments
+                if (childComments.Any())
                 {
-                    childComment.IsDeleted = true;
-                    childComment.UpdatedAt = DateTime.UtcNow;
+                    _context.Comments.RemoveRange(childComments);
                 }
             }
 
-            // Soft delete the comment
-            comment.IsDeleted = true;
-            comment.UpdatedAt = DateTime.UtcNow;
+            // Hard delete the comment
+            _context.Comments.Remove(comment);
 
             await _context.SaveChangesAsync();
             return true;
@@ -254,4 +252,4 @@ namespace Blog.Core.Services
             return (true, string.Empty);
         }
     }
-} 
+}

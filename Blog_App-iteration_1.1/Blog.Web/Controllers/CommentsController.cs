@@ -46,7 +46,7 @@ namespace Blog.Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, CommentConstants.LogMessages.ErrorRetrievingComments, articleId);
-                return StatusCode(500, new { message = "An error occurred while retrieving comments." });
+                return StatusCode(500, new { message = CommentConstants.ErrorMessages.InternalServerError });
             }
         }
 
@@ -57,12 +57,12 @@ namespace Blog.Web.Controllers
         {
             try
             {
-                _logger.LogInformation("AddComment called with ArticleId: {ArticleId}, Content length: {ContentLength}", 
+                _logger.LogInformation(CommentConstants.LogMessages.AddCommentCalled, 
                     model?.ArticleId, model?.Content?.Length);
                 
                 if (!ModelState.IsValid)
                 {
-                    _logger.LogWarning("Invalid ModelState in AddComment: {Errors}", 
+                    _logger.LogWarning(CommentConstants.LogMessages.InvalidModelState, 
                         string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
                     return BadRequest(ModelState);
                 }
@@ -70,35 +70,35 @@ namespace Blog.Web.Controllers
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    _logger.LogWarning("User not found in AddComment");
+                    _logger.LogWarning(CommentConstants.LogMessages.UserNotFoundInAddComment);
                     return Unauthorized(new { message = PermissionConstants.Messages.UserNotFound });
                 }
 
-                _logger.LogInformation("User {UserId} attempting to add comment", user.Id);
+                _logger.LogInformation(CommentConstants.LogMessages.UserAttemptingAddComment, user.Id);
                 var comment = await _commentService.AddCommentAsync(model, user);
-                _logger.LogInformation("Comment added successfully with ID: {CommentId}", comment.Id);
+                _logger.LogInformation(CommentConstants.LogMessages.CommentAddedSuccessfully, comment.Id);
 
                 // Notify connected clients through SignalR
                 await _commentHubContext.Clients.Group($"article-{model.ArticleId}")
                     .SendAsync(CommentConstants.EventNames.NewComment, comment);
-                _logger.LogInformation("SignalR notification sent for new comment");
+                _logger.LogInformation(CommentConstants.LogMessages.SignalRNotificationSent);
 
                 return Ok(comment);
             }
             catch (UnauthorizedAccessException ex)
             {
-                _logger.LogWarning(ex, "Unauthorized access in AddComment");
+                _logger.LogWarning(ex, CommentConstants.LogMessages.UnauthorizedAccessInAddComment);
                 return Forbid();
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning(ex, "Invalid argument in AddComment");
+                _logger.LogWarning(ex, CommentConstants.LogMessages.InvalidArgumentInAddComment);
                 return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, CommentConstants.LogMessages.ErrorAddingComment, model?.ArticleId);
-                return StatusCode(500, new { message = "An error occurred while adding the comment." });
+                return StatusCode(500, new { message = CommentConstants.ErrorMessages.CommentAddError });
             }
         }
 
@@ -111,7 +111,7 @@ namespace Blog.Web.Controllers
             {
                 if (id != model.Id)
                 {
-                    return BadRequest(new { message = "Comment ID mismatch." });
+                    return BadRequest(new { message = CommentConstants.ErrorMessages.CommentIdMismatch });
                 }
 
                 if (!ModelState.IsValid)
@@ -148,7 +148,7 @@ namespace Blog.Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, CommentConstants.LogMessages.ErrorUpdatingComment, id);
-                return StatusCode(500, new { message = "An error occurred while updating the comment." });
+                return StatusCode(500, new { message = CommentConstants.ErrorMessages.CommentUpdateError });
             }
         }
 
@@ -187,7 +187,7 @@ namespace Blog.Web.Controllers
                         .Select(c => c.Id)
                         .ToList();
                     
-                    _logger.LogInformation("Deleting parent comment {CommentId} with {ReplyCount} replies", id, replyIds.Count);
+                    _logger.LogInformation(CommentConstants.LogMessages.DeletingParentComment, id, replyIds.Count);
                 }
                 
                 var success = await _commentService.DeleteCommentAsync(id, user);
@@ -211,7 +211,7 @@ namespace Blog.Web.Controllers
                             .SendAsync(CommentConstants.EventNames.DeleteComment, replyId);
                     }
                     
-                    _logger.LogInformation("SignalR notification sent for parent comment {CommentId} and {ReplyCount} replies", id, replyIds.Count);
+                    _logger.LogInformation(CommentConstants.LogMessages.SignalRNotificationSentForParentComment, id, replyIds.Count);
                 }
                 else
                 {
@@ -219,7 +219,7 @@ namespace Blog.Web.Controllers
                     await _commentHubContext.Clients.Group($"article-{articleId}")
                         .SendAsync(CommentConstants.EventNames.DeleteComment, id);
                         
-                    _logger.LogInformation("SignalR notification sent for comment deletion {CommentId}", id);
+                    _logger.LogInformation(CommentConstants.LogMessages.SignalRNotificationSentForDeletion, id);
                 }
 
                 return Ok(new { message = CommentConstants.Messages.CommentDeleted });
@@ -231,8 +231,8 @@ namespace Blog.Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, CommentConstants.LogMessages.ErrorDeletingComment, id);
-                return StatusCode(500, new { message = "An error occurred while deleting the comment." });
+                return StatusCode(500, new { message = CommentConstants.ErrorMessages.CommentDeleteError });
             }
         }
     }
-} 
+}

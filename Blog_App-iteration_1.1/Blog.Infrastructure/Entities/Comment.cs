@@ -34,7 +34,7 @@ namespace Blog.Infrastructure.Entities
         [ForeignKey("ParentCommentId")]
         public Comment ParentComment { get; set; }
         
-        public bool IsDeleted { get; set; }
+
         
         public virtual ICollection<Comment> Replies { get; set; }
         public virtual ICollection<Report> Reports { get; set; }
@@ -44,7 +44,6 @@ namespace Blog.Infrastructure.Entities
             Replies = new HashSet<Comment>();
             Reports = new HashSet<Report>();
             CreatedAt = DateTime.UtcNow;
-            IsDeleted = false;
         }
     }
-} 
+}
