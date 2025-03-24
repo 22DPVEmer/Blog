@@ -51,5 +51,15 @@ namespace Blog.Core.Constants
             public const string Approved = "approved";
             public const string Rejected = "rejected";
         }
+        
+        /// <summary>
+        /// Type identifiers used in controllers for permission requests
+        /// </summary>
+        public static class TypeIdentifiers
+        {
+            public const string Vote = "vote";
+            public const string Comment = "comment";
+            public const string Write = "write";
+        }
     }
 } 

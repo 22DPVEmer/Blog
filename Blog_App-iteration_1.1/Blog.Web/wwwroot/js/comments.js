@@ -1,9 +1,9 @@
 // Comments JavaScript functionality
-function initializeComments(options) {
+window.initializeComments = function(options) {
     const { currentUserId, canComment, articleId, currentUserProfilePicture } = options;
     
     // Log user information for debugging
-    console.log("Comment initialization with currentUserId:", currentUserId);
+    console.log("Comment initialization with currentUserId:", currentUserId, "articleId:", articleId);
     
     // SignalR connection
     let connection;
@@ -13,6 +13,8 @@ function initializeComments(options) {
     
     // Initialize when document is ready
     $(document).ready(function() {
+        console.log("Document ready - initializing comments system");
+        
         // Initialize SignalR connection
         initializeSignalR();
         
@@ -102,40 +104,79 @@ function initializeComments(options) {
     });
     
     function initializeSignalR() {
-        console.log("Initializing SignalR...");
+        console.log("Initializing SignalR for article:", articleId);
+        
+        // Ensure articleId is a number not a string
+        const numericArticleId = parseInt(articleId, 10);
+        
+        if (isNaN(numericArticleId)) {
+            console.error("Invalid article ID for SignalR:", articleId);
+            return; // Don't continue if we don't have a valid article ID
+        }
+        
         connection = new signalR.HubConnectionBuilder()
             .withUrl("/commentHub")
-            .withAutomaticReconnect()
+            .withAutomaticReconnect([0, 2000, 5000, 10000, 30000]) // More specific reconnect policy
+            .configureLogging(signalR.LogLevel.Information) // Add logging
             .build();
-            
-        connection.on("NewComment", function(comment) {
-            console.log("SignalR: New comment received", comment);
+        
+        console.log("Registering SignalR event handlers");
+        
+        // Make sure event names match exactly between client and server
+        connection.on(CommentConstants.EventNames.NewComment, function(comment) {
+            console.log(`SignalR: New comment received for article ${numericArticleId}:`, comment);
             // Only append if the comment isn't already in the cache
             if (!commentsCache.some(c => c.id === comment.id)) {
                 appendNewComment(comment);
             }
         });
         
-        connection.on("UpdateComment", function(comment) {
-            console.log("SignalR: Comment update received", comment);
+        connection.on(CommentConstants.EventNames.UpdateComment, function(comment) {
+            console.log(`SignalR: Comment update received for article ${numericArticleId}:`, comment);
             updateExistingComment(comment);
         });
         
-        connection.on("DeleteComment", function(commentId) {
-            console.log("SignalR: Delete comment received", commentId);
+        connection.on(CommentConstants.EventNames.DeleteComment, function(commentId) {
+            console.log(`SignalR: Delete comment received for article ${numericArticleId}, commentId:`, commentId);
             removeComment(commentId);
         });
         
+        // Improved error handling and reconnection logging
+        connection.onreconnecting(error => {
+            console.warn("SignalR reconnecting due to error:", error);
+        });
+        
+        connection.onreconnected(connectionId => {
+            console.log("SignalR reconnected with connection ID:", connectionId);
+            // Rejoin the article group after reconnection
+            connection.invoke("JoinArticleGroup", numericArticleId)
+                .then(() => console.log("Rejoined article group after reconnection for article:", numericArticleId))
+                .catch(err => console.error("Error rejoining article group:", err));
+        });
+        
+        connection.onclose(error => {
+            console.error("SignalR connection closed with error:", error);
+        });
+        
+        console.log("Starting SignalR connection...");
         connection.start()
             .then(function() {
-                console.log("SignalR Connected");
-                connection.invoke("JoinArticleGroup", articleId)
-                    .then(function() {
-                        console.log("Joined article group:", articleId);
-                    })
-                    .catch(function(err) {
-                        console.error("Error joining article group:", err);
-                    });
+                const transportName = connection.connection ? connection.connection.transport.name : "unknown";
+                console.log("SignalR Connected with transport:", transportName);
+                
+                // Use a small delay to make sure connection is fully established
+                setTimeout(() => {
+                    console.log("Attempting to join article group for article ID:", numericArticleId);
+                    connection.invoke("JoinArticleGroup", numericArticleId)
+                        .then(() => {
+                            console.log("Successfully joined article group:", numericArticleId);
+                        })
+                        .catch(function(err) {
+                            console.error("Error joining article group:", err);
+                            console.log("Connection state:", connection.state);
+                            console.log("Will fall back to local updates only");
+                        });
+                }, 500);
             })
             .catch(function(err) {
                 console.error("SignalR Connection Error:", err);
@@ -248,7 +289,7 @@ function initializeComments(options) {
             .replace(/{userId}/g, comment.userId)
             .replace(/{content}/g, comment.content)
             .replace(/{userName}/g, comment.userName)
-            .replace(/{userProfilePicture}/g, comment.userProfilePicture || '/images/default-profile.jpg')
+            .replace(/{userProfilePicture}/g, comment.userProfilePicture || CommentConstants.DefaultProfileImage)
             .replace(/{createdAt}/g, createdDate)
             .replace(/{actionsDisplay}/g, displayStyle)
             .replace(/{replyDisplay}/g, canComment ? 'block' : 'none')
@@ -274,7 +315,7 @@ function initializeComments(options) {
             .replace(/{userId}/g, comment.userId)
             .replace(/{content}/g, comment.content)
             .replace(/{userName}/g, comment.userName)
-            .replace(/{userProfilePicture}/g, comment.userProfilePicture || '/images/default-profile.jpg')
+            .replace(/{userProfilePicture}/g, comment.userProfilePicture || CommentConstants.DefaultProfileImage)
             .replace(/{createdAt}/g, createdDate)
             .replace(/{actionsDisplay}/g, displayStyle);
     }
@@ -427,12 +468,12 @@ function initializeComments(options) {
             <div class="reply-form mt-2 mb-3" id="reply-form-${parentCommentId}">
                 <div class="d-flex">
                     <div class="flex-shrink-0">
-                        <img src="${currentUserProfilePicture}" 
+                        <img src="${currentUserProfilePicture || CommentConstants.DefaultProfileImage}" 
                              alt="Your profile" 
                              class="rounded-circle me-3" 
                              width="32" 
                              height="32"
-                             >
+                             onerror="this.src='${CommentConstants.DefaultProfileImage}'">
                     </div>
                     <div class="flex-grow-1">
                         <form>
@@ -502,7 +543,7 @@ function initializeComments(options) {
                              class="rounded-circle me-3" 
                              width="32" 
                              height="32"
-                             onerror="this.src='/images/default-profile.png';">
+                             onerror="this.src='${CommentConstants.DefaultProfileImage}';">
                     </div>
                     <div class="flex-grow-1">
                         <form>
@@ -890,7 +931,7 @@ function initializeComments(options) {
                     .html(`
                         <div class="d-flex align-items-center">
                             <i class="bi bi-check-circle me-2"></i>
-                            Reply posted successfully
+                            ${CommentConstants.SuccessMessages.ReplyPosted}
                         </div>
                     `);
                 
@@ -918,7 +959,7 @@ function initializeComments(options) {
                 console.log("Status:", xhr.status);
                 console.log("Response:", xhr.responseText);
                 
-                let errorMessage = "Failed to add reply. Please try again.";
+                let errorMessage = CommentConstants.ErrorMessages.AddFailed;
                 
                 if (xhr.responseJSON && xhr.responseJSON.message) {
                     errorMessage = xhr.responseJSON.message;
@@ -984,8 +1025,10 @@ function initializeComments(options) {
     // Clean up SignalR connection when leaving page
     $(window).on("beforeunload", function() {
         if (connection) {
-            connection.invoke("LeaveArticleGroup", articleId);
-            connection.stop();
+            connection.invoke("LeaveArticleGroup", parseInt(articleId, 10))
+                .catch(err => console.error("Error leaving article group:", err));
+            connection.stop()
+                .catch(err => console.error("Error stopping connection:", err));
         }
     });
-} 
+}

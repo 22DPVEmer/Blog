@@ -136,6 +136,9 @@
     <!-- SignalR -->
     <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
     
+    <!-- Comment constants -->
+    <script src="~/js/commentConstants.js"></script>
+    
     <!-- Comment script -->
     <script src="~/js/comments.js"></script>
 
@@ -191,16 +194,23 @@
                 var currentUserId = currentUser?.Id ?? string.Empty;
                 var canComment = currentUser != null && (currentUser.CanCommentArticles || currentUser.IsAdmin);
                 var profilePicture = currentUser?.ProfilePicture ?? "/images/default-profile.jpg";
+                // Ensure article ID is a number
+                var articleId = ViewBag.ArticleId;
             }
             
-            initializeComments({
-                currentUserId: '@(currentUserId)',
-                canComment: @Json.Serialize(canComment),
-                articleId: '@ViewBag.ArticleId',
-                currentUserProfilePicture: '@(profilePicture)'
-            });
+            console.log("Initializing comments with article ID: @articleId");
+            
+            // Check if function is defined before calling
+            if (typeof initializeComments === 'function') {
+                initializeComments({
+                    currentUserId: '@(currentUserId)',
+                    canComment: @Json.Serialize(canComment),
+                    articleId: @articleId, // Pass as a number, not a string
+                    currentUserProfilePicture: '@(profilePicture)'
+                });
+            } else {
+                console.error("initializeComments function is not defined. Check if comments.js is loaded correctly.");
+            }
         });
     </script>
-    
-
 }

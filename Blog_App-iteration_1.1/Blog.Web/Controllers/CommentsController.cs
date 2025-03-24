@@ -15,7 +15,7 @@ using System.Collections.Generic;
 
 namespace Blog.Web.Controllers
 {
-    [Route("[controller]")]
+    [Route(CommentConstants.ApiRoutes.ControllerRoot)]
     public class CommentsController : Controller
     {
         private readonly ICommentService _commentService;
@@ -35,7 +35,7 @@ namespace Blog.Web.Controllers
             _commentHubContext = commentHubContext;
         }
 
-        [HttpGet("Article/{articleId}")]
+        [HttpGet(CommentConstants.ApiRoutes.ArticleByIdFormat)]
         public async Task<IActionResult> GetArticleComments(int articleId)
         {
             try
@@ -46,7 +46,7 @@ namespace Blog.Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, CommentConstants.LogMessages.ErrorRetrievingComments, articleId);
-                return StatusCode(500, new { message = CommentConstants.ErrorMessages.InternalServerError });
+                return StatusCode(CommentConstants.HttpStatusCodes.InternalServerError, new { message = CommentConstants.ErrorMessages.InternalServerError });
             }
         }
 
@@ -57,52 +57,45 @@ namespace Blog.Web.Controllers
         {
             try
             {
-                _logger.LogInformation(CommentConstants.LogMessages.AddCommentCalled, 
-                    model?.ArticleId, model?.Content?.Length);
-                
                 if (!ModelState.IsValid)
                 {
-                    _logger.LogWarning(CommentConstants.LogMessages.InvalidModelState, 
-                        string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
                     return BadRequest(ModelState);
                 }
 
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    _logger.LogWarning(CommentConstants.LogMessages.UserNotFoundInAddComment);
                     return Unauthorized(new { message = PermissionConstants.Messages.UserNotFound });
                 }
 
-                _logger.LogInformation(CommentConstants.LogMessages.UserAttemptingAddComment, user.Id);
                 var comment = await _commentService.AddCommentAsync(model, user);
-                _logger.LogInformation(CommentConstants.LogMessages.CommentAddedSuccessfully, comment.Id);
 
                 // Notify connected clients through SignalR
-                await _commentHubContext.Clients.Group($"article-{model.ArticleId}")
-                    .SendAsync(CommentConstants.EventNames.NewComment, comment);
-                _logger.LogInformation(CommentConstants.LogMessages.SignalRNotificationSent);
+                try {
+                    await _commentHubContext.Clients.Group(string.Format(CommentConstants.HubConstants.ArticleGroupNameFormat, model.ArticleId))
+                        .SendAsync(CommentConstants.EventNames.NewComment, comment);
+                } catch (Exception ex) {
+                    _logger.LogError(ex, CommentConstants.LogMessages.SignalRNotificationError, CommentConstants.SignalRNotificationTypes.NewComment);
+                }
 
                 return Ok(comment);
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException)
             {
-                _logger.LogWarning(ex, CommentConstants.LogMessages.UnauthorizedAccessInAddComment);
                 return Forbid();
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning(ex, CommentConstants.LogMessages.InvalidArgumentInAddComment);
                 return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, CommentConstants.LogMessages.ErrorAddingComment, model?.ArticleId);
-                return StatusCode(500, new { message = CommentConstants.ErrorMessages.CommentAddError });
+                return StatusCode(CommentConstants.HttpStatusCodes.InternalServerError, new { message = CommentConstants.ErrorMessages.CommentAddError });
             }
         }
 
-        [HttpPut("{id}")]
+        [HttpPut(CommentConstants.ApiRoutes.CommentById)]
         [Authorize]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateComment(int id, [FromBody] UpdateCommentViewModel model)
@@ -132,8 +125,12 @@ namespace Blog.Web.Controllers
                 int articleId = originalComment.ArticleId;
 
                 // Notify connected clients through SignalR
-                await _commentHubContext.Clients.Group($"article-{articleId}")
-                    .SendAsync(CommentConstants.EventNames.UpdateComment, comment);
+                try {
+                    await _commentHubContext.Clients.Group(string.Format(CommentConstants.HubConstants.ArticleGroupNameFormat, articleId))
+                        .SendAsync(CommentConstants.EventNames.UpdateComment, comment);
+                } catch (Exception ex) {
+                    _logger.LogError(ex, CommentConstants.LogMessages.SignalRNotificationError, CommentConstants.SignalRNotificationTypes.CommentUpdate);
+                }
 
                 return Ok(comment);
             }
@@ -148,11 +145,11 @@ namespace Blog.Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, CommentConstants.LogMessages.ErrorUpdatingComment, id);
-                return StatusCode(500, new { message = CommentConstants.ErrorMessages.CommentUpdateError });
+                return StatusCode(CommentConstants.HttpStatusCodes.InternalServerError, new { message = CommentConstants.ErrorMessages.CommentUpdateError });
             }
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete(CommentConstants.ApiRoutes.CommentById)]
         [Authorize]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteComment(int id)
@@ -186,8 +183,6 @@ namespace Blog.Web.Controllers
                         .Where(c => c.ParentCommentId == id)
                         .Select(c => c.Id)
                         .ToList();
-                    
-                    _logger.LogInformation(CommentConstants.LogMessages.DeletingParentComment, id, replyIds.Count);
                 }
                 
                 var success = await _commentService.DeleteCommentAsync(id, user);
@@ -197,29 +192,23 @@ namespace Blog.Web.Controllers
                 }
 
                 // Notify connected clients through SignalR
-                if (isParentComment && replyIds.Count > 0)
-                {
-                    // Use our enhanced notification for deleting parent comments with replies
-                    // First notify about the parent comment deletion
-                    await _commentHubContext.Clients.Group($"article-{articleId}")
+                try {
+                    string groupName = string.Format(CommentConstants.HubConstants.ArticleGroupNameFormat, articleId);
+                    
+                    // First notify about the parent comment
+                    await _commentHubContext.Clients.Group(groupName)
                         .SendAsync(CommentConstants.EventNames.DeleteComment, id);
                     
-                    // Then notify about each reply deletion
-                    foreach (var replyId in replyIds)
-                    {
-                        await _commentHubContext.Clients.Group($"article-{articleId}")
-                            .SendAsync(CommentConstants.EventNames.DeleteComment, replyId);
+                    // If this is a parent comment with replies, notify about each reply deletion too
+                    if (isParentComment && replyIds.Count > 0) {
+                        // Then notify about each reply deletion
+                        foreach (var replyId in replyIds) {
+                            await _commentHubContext.Clients.Group(groupName)
+                                .SendAsync(CommentConstants.EventNames.DeleteComment, replyId);
+                        }
                     }
-                    
-                    _logger.LogInformation(CommentConstants.LogMessages.SignalRNotificationSentForParentComment, id, replyIds.Count);
-                }
-                else
-                {
-                    // Use the standard method for single comment deletion
-                    await _commentHubContext.Clients.Group($"article-{articleId}")
-                        .SendAsync(CommentConstants.EventNames.DeleteComment, id);
-                        
-                    _logger.LogInformation(CommentConstants.LogMessages.SignalRNotificationSentForDeletion, id);
+                } catch (Exception ex) {
+                    _logger.LogError(ex, CommentConstants.LogMessages.SignalRNotificationError, CommentConstants.SignalRNotificationTypes.CommentDeletion);
                 }
 
                 return Ok(new { message = CommentConstants.Messages.CommentDeleted });
@@ -231,7 +220,7 @@ namespace Blog.Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, CommentConstants.LogMessages.ErrorDeletingComment, id);
-                return StatusCode(500, new { message = CommentConstants.ErrorMessages.CommentDeleteError });
+                return StatusCode(CommentConstants.HttpStatusCodes.InternalServerError, new { message = CommentConstants.ErrorMessages.CommentDeleteError });
             }
         }
     }

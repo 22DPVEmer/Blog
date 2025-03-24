@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Blog.Web.Services;
 using Blog.Core.Models;
+using Blog.Core.Constants;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -98,12 +99,13 @@ app.UseAuthorization();
 app.UseSession();
 
 // Map SignalR Hubs
-app.MapHub<Blog.Web.Hubs.CommentHub>("/commentHub");
+app.MapHub<Blog.Web.Hubs.CommentHub>(CommentConstants.ApiRoutes.CommentHubEndpoint);
 
+// Configure routes
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
-    
+    pattern: CommentConstants.ApiRoutes.DefaultRoute);
+
 app.MapRazorPages();
 
 // Create default roles

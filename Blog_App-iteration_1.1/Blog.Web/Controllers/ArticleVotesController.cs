@@ -3,14 +3,16 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Blog.Infrastructure.Entities;
 using Blog.Core.Interfaces;
+using Blog.Core.Models;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Blog.Core.Constants;
+using System;
 
 namespace Blog.Web.Controllers
 {
     [Authorize]
-    [Route("[controller]")]
+    [Route(CommentConstants.ApiRoutes.ControllerRoot)]
     public class ArticleVotesController : Controller
     {
         private readonly IArticleVoteService _articleVoteService;
@@ -27,7 +29,7 @@ namespace Blog.Web.Controllers
             _logger = logger;
         }
 
-        [HttpPost("Vote/{articleId}")]
+        [HttpPost(CommentConstants.ApiRoutes.Vote)]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Vote(int articleId, bool isUpvote)
         {
@@ -61,10 +63,10 @@ namespace Blog.Web.Controllers
                     score = article.UpvoteCount - article.DownvoteCount
                 });
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, VoteConstants.LogMessages.ErrorProcessingVote, articleId);
-                return StatusCode(500, new { success = false, message = VoteConstants.Messages.ErrorProcessingVote });
+                return StatusCode(CommentConstants.HttpStatusCodes.InternalServerError, new { success = false, message = VoteConstants.Messages.ErrorProcessingVote });
             }
         }
     }
