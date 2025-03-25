@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Blog.Web.Services;
 using Blog.Core.Models;
+using Blog.Core.Constants;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +49,10 @@ builder.Services.AddScoped<IEmailSender, EmailSenderService>();
 builder.Services.AddScoped<IFirebaseStorageService, FirebaseStorageService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IArticleVoteService, ArticleVoteService>();
+builder.Services.AddScoped<ICommentService, CommentService>();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Add Image Processing Background Service
 builder.Services.AddSingleton<ImageProcessingBackgroundService>();
@@ -93,10 +98,14 @@ app.UseAuthorization();
 // Enable session
 app.UseSession();
 
+// Map SignalR Hubs
+app.MapHub<Blog.Web.Hubs.CommentHub>(CommentConstants.ApiRoutes.CommentHubEndpoint);
+
+// Configure routes
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
-    
+    pattern: CommentConstants.ApiRoutes.DefaultRoute);
+
 app.MapRazorPages();
 
 // Create default roles

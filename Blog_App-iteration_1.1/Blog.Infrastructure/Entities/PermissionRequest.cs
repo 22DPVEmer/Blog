@@ -34,6 +34,7 @@ namespace Blog.Infrastructure.Entities
     public enum PermissionRequestType
     {
         WriteArticle,
-        VoteArticle
+        VoteArticle,
+        CommentArticle
     }
 }

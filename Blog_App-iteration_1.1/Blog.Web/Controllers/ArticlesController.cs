@@ -5,9 +5,14 @@ using Blog.Infrastructure.Entities;
 using Blog.Core.Interfaces;
 using Blog.Core.Models;
 using Blog.Core.Constants;
+using System;
+using System.Threading.Tasks;
+using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace Blog.Web.Controllers
 {
+    [Route(CommentConstants.ApiRoutes.ControllerRoot)]
     public class ArticlesController : Controller
     {
         private readonly IArticleService _articleService;
@@ -47,12 +52,13 @@ namespace Blog.Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, LogConstants.Articles.RetrieveError, searchTerm, dateFilterStr);
-                TempData["ErrorMessage"] = "An error occurred while retrieving articles.";
-                return RedirectToAction("Error", "Home");
+                TempData["ErrorMessage"] = CommentConstants.ErrorMessages.ArticleRetrievalError;
+                return RedirectToAction(CommentConstants.ApiRoutes.DefaultErrorAction, CommentConstants.ApiRoutes.DefaultHomeController);
             }
         }
 
         // GET: Articles/Details/5
+        [HttpGet(CommentConstants.ApiRoutes.ArticleId)]
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null)
@@ -78,6 +84,7 @@ namespace Blog.Web.Controllers
         }
 
         // GET: Articles/Create
+        [HttpGet(CommentConstants.ApiRoutes.ArticleCreate)]
         [Authorize]
         public IActionResult Create()
         {
@@ -85,7 +92,7 @@ namespace Blog.Web.Controllers
         }
 
         // POST: Articles/Create
-        [HttpPost]
+        [HttpPost(CommentConstants.ApiRoutes.ArticleCreate)]
         [ValidateAntiForgeryToken]
         [Authorize]
         public async Task<IActionResult> Create([FromForm] ArticleCreateViewModel model)
@@ -94,29 +101,45 @@ namespace Blog.Web.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(new { errors = ModelState.ToDictionary(
-                        kvp => kvp.Key,
-                        kvp => kvp.Value.Errors.Select(e => e.ErrorMessage).ToArray()
-                    )});
+                    return StatusCode(
+                        CommentConstants.HttpStatusCodes.BadRequest, 
+                        new { errors = ModelState.ToDictionary(
+                            kvp => kvp.Key,
+                            kvp => kvp.Value.Errors.Select(e => e.ErrorMessage).ToArray()
+                        )}
+                    );
                 }
 
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    return Unauthorized(new { message = ArticleConstants.Messages.UserNotFound });
+                    return StatusCode(
+                        CommentConstants.HttpStatusCodes.Unauthorized, 
+                        new { message = ArticleConstants.Messages.UserNotFound }
+                    );
                 }
 
                 var article = await _articleService.CreateArticleAsync(model, user);
-                return Ok(new { id = article.Id, message = ArticleConstants.Messages.ArticleCreated });
+                return StatusCode(
+                    CommentConstants.HttpStatusCodes.Ok, 
+                    new { 
+                        id = article.Id, 
+                        message = ArticleConstants.Messages.ArticleCreated 
+                    }
+                );
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, LogConstants.Articles.CreateError);
-                return StatusCode(500, new { message = $"An error occurred while creating the article: {ex.Message}" });
+                return StatusCode(
+                    CommentConstants.HttpStatusCodes.InternalServerError, 
+                    new { message = ArticleConstants.Messages.CreateError }
+                );
             }
         }
 
         // GET: Articles/Edit/5
+        [HttpGet(CommentConstants.ApiRoutes.ArticleEdit + "/{id}")]
         [Authorize]
         public async Task<IActionResult> Edit(int? id)
         {
@@ -134,7 +157,7 @@ namespace Blog.Web.Controllers
             var user = await _userManager.GetUserAsync(User);
             if (user == null || article.UserId != user.Id)
             {
-                TempData["ErrorMessage"] = "You don't have permission to edit this article.";
+                TempData["ErrorMessage"] = CommentConstants.ErrorMessages.NoPermissionToEditArticle;
                 return RedirectToAction(nameof(Index));
             }
 
@@ -142,7 +165,7 @@ namespace Blog.Web.Controllers
         }
 
         // POST: Articles/Edit/5
-        [HttpPost]
+        [HttpPost(CommentConstants.ApiRoutes.ArticleEdit + "/{id}")]
         [ValidateAntiForgeryToken]
         [Authorize]
         public async Task<IActionResult> Edit(int id, [FromForm] ArticleCreateViewModel model)
@@ -152,20 +175,30 @@ namespace Blog.Web.Controllers
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    return Unauthorized(new { message = "User not found" });
+                    return StatusCode(
+                        CommentConstants.HttpStatusCodes.Unauthorized, 
+                        new { message = ArticleConstants.Messages.UserNotFound }
+                    );
                 }
 
                 var article = await _articleService.UpdateArticleAsync(id, model, user);
-                return Ok(new { message = "Article updated successfully" });
+                return StatusCode(
+                    CommentConstants.HttpStatusCodes.Ok, 
+                    new { message = ArticleConstants.Messages.ArticleUpdated }
+                );
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, LogConstants.Articles.UpdateError, id);
-                return StatusCode(500, new { message = $"An error occurred while updating the article: {ex.Message}" });
+                return StatusCode(
+                    CommentConstants.HttpStatusCodes.InternalServerError, 
+                    new { message = ArticleConstants.Messages.UpdateError }
+                );
             }
         }
 
         // GET: Articles/Delete/5
+        [HttpGet(CommentConstants.ApiRoutes.ArticleDelete + "/{id}")]
         [Authorize]
         public async Task<IActionResult> Delete(int? id)
         {
@@ -190,7 +223,7 @@ namespace Blog.Web.Controllers
         }
 
         // POST: Articles/Delete/5
-        [HttpPost]
+        [HttpPost(CommentConstants.ApiRoutes.ArticleDeleteConfirmed)]
         [ValidateAntiForgeryToken]
         [Authorize]
         public async Task<IActionResult> DeleteConfirmed(int id)
@@ -200,7 +233,10 @@ namespace Blog.Web.Controllers
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    return Unauthorized(new { message = "User not found" });
+                    return StatusCode(
+                        CommentConstants.HttpStatusCodes.Unauthorized, 
+                        new { message = ArticleConstants.Messages.UserNotFound }
+                    );
                 }
 
                 var success = await _articleService.DeleteArticleAsync(id, user);
@@ -209,18 +245,18 @@ namespace Blog.Web.Controllers
                     return NotFound();
                 }
 
-                TempData["SuccessMessage"] = "Article was successfully deleted.";
+                TempData["SuccessMessage"] = CommentConstants.SuccessMessages.ArticleDeleted;
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, LogConstants.Articles.DeleteError, id);
-                TempData["ErrorMessage"] = "An error occurred while deleting the article.";
+                TempData["ErrorMessage"] = CommentConstants.ErrorMessages.ArticleDeleteError;
                 return RedirectToAction(nameof(Index));
             }
         }
 
-        [HttpPost]
+        [HttpPost(CommentConstants.ApiRoutes.ArticleUploadImage)]
         [ValidateAntiForgeryToken]
         [Authorize]
         public async Task<IActionResult> UploadImage(IFormFile file, bool isFeatured = false)
@@ -229,21 +265,27 @@ namespace Blog.Web.Controllers
             {
                 var imageUrl = await _articleService.UploadImageAsync(file, isFeatured);
                 
-                return Ok(new { 
-                    message = "Image uploaded successfully",
-                    status = "success",
-                    imageUrl = imageUrl
-                });
+                return StatusCode(
+                    CommentConstants.HttpStatusCodes.Ok, 
+                    new { 
+                        message = CommentConstants.SuccessMessages.ImageUploaded,
+                        status = CommentConstants.JsonPropertyNames.Success,
+                        imageUrl = imageUrl
+                    }
+                );
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, LogConstants.Articles.ImageUploadError);
-                return StatusCode(500, new { message = $"{ArticleConstants.Messages.ImageUploadError}: {ex.Message}" });
+                return StatusCode(
+                    CommentConstants.HttpStatusCodes.InternalServerError, 
+                    new { message = ArticleConstants.Messages.ImageUploadError }
+                );
             }
         }
 
         // POST: Articles/Vote/5
-        [HttpPost]
+        [HttpPost(CommentConstants.ApiRoutes.Vote)]
         [ValidateAntiForgeryToken]
         [Authorize]
         public async Task<IActionResult> Vote(int id, bool isUpvote)
@@ -253,7 +295,10 @@ namespace Blog.Web.Controllers
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    return Unauthorized(new { message = ArticleConstants.Messages.UserNotFound });
+                    return StatusCode(
+                        CommentConstants.HttpStatusCodes.Unauthorized, 
+                        new { message = ArticleConstants.Messages.UserNotFound }
+                    );
                 }
 
                 if (!user.CanVoteArticles && !user.IsAdmin)
@@ -266,13 +311,13 @@ namespace Blog.Web.Controllers
             }
             catch (UnauthorizedAccessException)
             {
-                TempData["ErrorMessage"] = "You don't have permission to rank articles.";
+                TempData["ErrorMessage"] = CommentConstants.ErrorMessages.NoPermissionToRankArticles;
                 return RedirectToAction(nameof(Details), new { id });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error voting for article {ArticleId}", id);
-                TempData["ErrorMessage"] = "An error occurred while voting for the article.";
+                _logger.LogError(ex, LogConstants.Articles.VoteError, id);
+                TempData["ErrorMessage"] = CommentConstants.ErrorMessages.ArticleVoteError;
                 return RedirectToAction(nameof(Details), new { id });
             }
         }

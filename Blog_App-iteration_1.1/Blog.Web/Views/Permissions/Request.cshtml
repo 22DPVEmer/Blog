@@ -23,18 +23,21 @@
 
                     <form method="post">
                         @Html.AntiForgeryToken()
-                        @if (ViewBag.IsVoteRequest)
-                        {
-                            <input type="hidden" name="isVoteRequest" value="true" />
-                        }
+                        <input type="hidden" name="type" value="@ViewBag.PermissionType" />
                         <div class="mb-4">
                             <label for="reason" class="form-label">@(ViewBag.Description ?? "Why would you like this permission?")</label>
                             <textarea class="form-control" id="reason" name="reason" rows="5" required
-                                    placeholder="@(ViewBag.IsVoteRequest ? "Please explain why you would like to vote on articles..." : "Please explain why you would like to contribute articles to our blog...")"></textarea>
+                                    placeholder="@(ViewBag.PermissionType == "vote" ? "Please explain why you would like to vote on articles..." : 
+                                                 ViewBag.PermissionType == "comment" ? "Please explain why you would like to comment on articles..." : 
+                                                 "Please explain why you would like to contribute articles to our blog...")"></textarea>
                             <div class="form-text">
-                                @if (ViewBag.IsVoteRequest)
+                                @if (ViewBag.PermissionType == "vote")
                                 {
                                     <span>Be specific about why you want to participate in rating and ranking articles.</span>
+                                }
+                                else if (ViewBag.PermissionType == "comment")
+                                {
+                                    <span>Be specific about why you want to participate in discussions and provide feedback on articles.</span>
                                 }
                                 else
                                 {

@@ -14,6 +14,7 @@ namespace Blog.Infrastructure.Entities
         public bool IsAdmin { get; set; }
         public bool CanWriteArticles { get; set; }
         public bool CanVoteArticles { get; set; }
+        public bool CanCommentArticles { get; set; }
         public bool IsActive { get; set;}
 
         // Navigation properties
@@ -34,6 +35,7 @@ namespace Blog.Infrastructure.Entities
             IsActive = true;
             CanWriteArticles = false;
             CanVoteArticles = false;
+            CanCommentArticles = false;
             IsAdmin = false;
         }
     }

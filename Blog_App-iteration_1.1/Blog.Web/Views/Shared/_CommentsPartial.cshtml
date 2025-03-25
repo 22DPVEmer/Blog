@@ -1,0 +1,417 @@
+@using Microsoft.AspNetCore.Identity
+@using Blog.Infrastructure.Entities
+@inject UserManager<User> UserManager
+
+@{
+    var currentUser = await UserManager.GetUserAsync(User);
+    var canComment = currentUser != null && (currentUser.CanCommentArticles || currentUser.IsAdmin);
+    var profilePicture = currentUser?.ProfilePicture ?? "/images/default-profile.jpg";
+    // Properly encode the profile picture URL for JavaScript
+    var encodedProfilePicture = Html.Raw(Json.Serialize(profilePicture));
+}
+
+<div class="comments-section mt-5">
+    <h3 class="comments-header mb-4">
+        <span id="totalCommentCount">0</span> Comments
+    </h3>
+    
+    @if (User.Identity.IsAuthenticated && !canComment)
+    {
+        <div class="alert alert-info">
+            <p>You don't have permission to comment on articles. <a href="@Url.Action("Request", "Permissions", new { type = "comment" })">Request comment permission</a>.</p>
+        </div>
+    }
+    
+    @if (User.Identity.IsAuthenticated && canComment)
+    {
+        <div class="comment-box mb-4">
+            <div class="d-flex">
+                <div class="flex-shrink-0">
+                    <img src="@profilePicture" 
+                         alt="@currentUser?.UserName" 
+                         class="rounded-circle me-3" 
+                         width="40" 
+                         height="40"
+                         onerror="this.src='/images/default-profile.jpg';">
+                </div>
+                <div class="flex-grow-1">
+                    <form id="commentForm">
+                        <input type="hidden" id="articleId" value="@ViewBag.ArticleId" />
+                        @Html.AntiForgeryToken()
+                        <div class="mb-2">
+                            <textarea class="form-control border-0 comment-input" 
+                                      id="commentContent" 
+                                      rows="1" 
+                                      placeholder="Add a comment..."></textarea>
+                        </div>
+                        <div class="comment-actions" style="display: none;">
+                            <button type="button" id="cancelCommentBtn" class="btn btn-light">Cancel</button>
+                            <button type="submit" id="submitCommentBtn" class="btn btn-primary" disabled>Comment</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+    
+    <div id="commentsList" class="mt-4">
+        <!-- Comments will be loaded dynamically -->
+        <div class="text-center" id="commentsLoading">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading comments...</span>
+            </div>
+        </div>
+        <div id="noComments" style="display: none;">
+            <p class="text-muted">No comments yet. Be the first to comment!</p>
+        </div>
+    </div>
+</div>
+
+
+
+<style>
+    /* YouTube-like styling */
+    .comments-header {
+        font-size: 1.2rem;
+        font-weight: 500;
+        color: #0f0f0f;
+    }
+    
+    .comment-box {
+        margin-bottom: 32px;
+    }
+    
+    .comment-input {
+        font-size: 14px;
+        resize: none;
+        border-bottom: 1px solid #e0e0e0 !important;
+        padding: 8px 0;
+        transition: all 0.2s ease;
+    }
+    
+    .comment-input:focus {
+        border-bottom: 2px solid #0f0f0f !important;
+        box-shadow: none;
+    }
+    
+    .comment-actions {
+        display: none;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    
+    .comment {
+        margin-bottom: 16px;
+        border: none;
+        border-radius: 0;
+    }
+    
+    .comment .card-body {
+        padding: 0;
+    }
+    
+    .comment-thread {
+        position: relative;
+        margin-bottom: 16px;
+    }
+    
+    .comment-thread .comment {
+        background-color: transparent;
+    }
+    
+    .collapse-line {
+        position: absolute;
+        left: 16px; /* Adjusted to align with profile image */
+        top: 40px; /* Start after the main comment */
+        bottom: 0;
+        width: 2px;
+        background-color: #e0e0e0;
+        cursor: pointer;
+    }
+    
+    .collapse-line:hover {
+        background-color: #065fd4;
+    }
+    
+    .replies-container {
+        margin-left: 48px; /* Adjusted to align with profile image */
+        position: relative;
+        padding-top: 8px;
+    }
+    
+    .reply-form {
+        margin-left: 48px; /* Align with other replies */
+        margin-top: 8px;
+        margin-bottom: 16px;
+    }
+    
+    /* Adjust the spacing for nested comments */
+    .replies-container .comment {
+        margin-bottom: 12px;
+    }
+    
+    /* Ensure proper alignment of reply button */
+    .reply-action {
+        margin-left: -8px; /* Offset the button's padding */
+    }
+    
+    .reply-comment-btn {
+        font-size: 13px;
+        color: #606060;
+        padding: 8px 16px;
+        background: transparent;
+        border: none;
+    }
+    
+    .reply-comment-btn:hover {
+        color: #0f0f0f;
+    }
+    
+    .toggle-replies {
+        font-size: 13px;
+        color: #065fd4;
+        background: none;
+        border: none;
+        padding: 8px 0;
+        cursor: pointer;
+        margin-left: 8px; /* Add spacing between reply and toggle buttons */
+    }
+    
+    .toggle-replies:hover {
+        color: #0b5bb9;
+    }
+    
+    .collapsed-indicator {
+        display: none;
+        font-size: 13px;
+        color: #065fd4;
+        margin-left: 48px; /* Align with replies */
+        padding: 8px 0;
+        cursor: pointer;
+    }
+    
+    .collapsed-indicator:hover {
+        color: #0b5bb9;
+    }
+    
+    .comment-meta {
+        font-size: 13px;
+        color: #606060;
+        margin-bottom: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .comment-meta .meta-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .kebab-menu {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .kebab-button {
+        background: none;
+        border: none;
+        padding: 4px 8px;
+        color: #606060;
+        cursor: pointer;
+    }
+    
+    .kebab-button:hover {
+        color: #0f0f0f;
+    }
+    
+    .kebab-menu-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        background-color: white;
+        min-width: 120px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        border-radius: 4px;
+        z-index: 1000;
+    }
+    
+    .kebab-menu-content.show {
+        display: block;
+    }
+    
+    .kebab-menu-content button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 16px;
+        border: none;
+        background: none;
+        text-align: left;
+        color: #0f0f0f;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    
+    .kebab-menu-content button:hover {
+        background-color: #f2f2f2;
+    }
+    
+    .kebab-menu-content button i {
+        font-size: 16px;
+    }
+    
+    .comment-content {
+        font-size: 14px;
+        color: #0f0f0f;
+        margin-bottom: 8px;
+        white-space: pre-line;
+    }
+    
+    .comment-actions .btn {
+        font-size: 14px;
+        padding: 8px 16px;
+    }
+    
+    .btn-light {
+        color: #606060;
+        background: transparent;
+        border: none;
+    }
+    
+    .btn-light:hover {
+        background-color: #f2f2f2;
+    }
+    
+    .btn-primary {
+        background-color: #065fd4;
+        border-color: #065fd4;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0b5bb9;
+        border-color: #0b5bb9;
+    }
+</style>
+
+<!-- Parent comment template -->
+<template id="commentTemplate">
+    <div class="comment-thread" id="thread-{id}">
+        <div class="collapse-line" data-thread-id="{id}"></div>
+        <div class="comment card" id="comment-{id}">
+            <div class="card-body">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <img src="{userProfilePicture}" alt="{userName}" class="rounded-circle me-2" width="32" height="32"
+                             onerror="this.src='/images/default-profile.jpg';">
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="comment-meta">
+                            <div class="meta-left">
+                                <strong>{userName}</strong>
+                                <span class="text-muted">{createdAt}</span>
+                            </div>
+                            @if (User.Identity.IsAuthenticated && canComment)
+                            {
+                                <div class="kebab-menu" style="display: {actionsDisplay};" data-comment-author="{userId}">
+                                    <button class="kebab-button" onclick="toggleKebabMenu(this)">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <div class="kebab-menu-content">
+                                        <button class="edit-comment-btn" data-id="{id}">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </button>
+                                        <button class="delete-comment-btn" data-id="{id}">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        <p class="comment-content mb-1">{content}</p>
+                        <div class="reply-action mt-1" style="display: {replyDisplay};">
+                            <button class="btn btn-sm text-muted reply-comment-btn" data-id="{id}">
+                                <i class="bi bi-reply"></i> Reply
+                            </button>
+                            <button class="toggle-replies" data-thread-id="{id}" style="display: {toggleDisplay};">
+                                <i class="bi bi-dash-circle toggle-icon"></i> <span class="toggle-text">Hide replies</span> (<span class="reply-count">{replyCount}</span>)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="collapsed-indicator" id="collapsed-{id}">
+            <i class="bi bi-plus-circle"></i> <span class="reply-count">{replyCount}</span> hidden replies - click to expand
+        </div>
+        <div class="replies-container" id="replies-{id}">
+            <!-- Replies will be inserted here -->
+        </div>
+    </div>
+</template>
+
+<!-- Reply template -->
+<template id="replyTemplate">
+    <div class="comment card" id="comment-{id}">
+        <div class="card-body">
+            <div class="d-flex">
+                <div class="flex-shrink-0">
+                    <img src="{userProfilePicture}" alt="{userName}" class="rounded-circle me-2" width="32" height="32"
+                         onerror="this.src='/images/default-profile.jpg';">
+                </div>
+                <div class="flex-grow-1">
+                    <div class="comment-meta">
+                        <div class="meta-left">
+                            <strong>{userName}</strong>
+                            <span class="text-muted">{createdAt}</span>
+                        </div>
+                        @if (User.Identity.IsAuthenticated && canComment)
+                        {
+                            <div class="kebab-menu" style="display: {actionsDisplay};" data-comment-author="{userId}">
+                                <button class="kebab-button" onclick="toggleKebabMenu(this)">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                                <div class="kebab-menu-content">
+                                    <button class="edit-comment-btn" data-id="{id}">
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                    <button class="delete-comment-btn" data-id="{id}">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <p class="comment-content mb-1">{content}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+    // Close all kebab menus when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.kebab-menu')) {
+            document.querySelectorAll('.kebab-menu-content').forEach(menu => {
+                menu.classList.remove('show');
+            });
+        }
+    });
+
+    function toggleKebabMenu(button) {
+        event.stopPropagation();
+        const menu = button.nextElementSibling;
+        // Close all other menus
+        document.querySelectorAll('.kebab-menu-content').forEach(otherMenu => {
+            if (otherMenu !== menu) {
+                otherMenu.classList.remove('show');
+            }
+        });
+        // Toggle this menu
+        menu.classList.toggle('show');
+    }
+</script> 

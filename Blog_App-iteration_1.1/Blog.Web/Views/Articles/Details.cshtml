@@ -82,6 +82,13 @@
                     </a>
                 </div>
             }
+            
+            <!-- Comments Section -->
+            @{
+                ViewBag.ArticleId = Model.Id;
+            }
+            <partial name="_CommentsPartial" />
+            <!-- End Comments Section -->
         </div>
     </div>
 </div>
@@ -122,45 +129,88 @@
         }
     </style>
 }
-
 @section Scripts {
+    <!-- jQuery first -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    
+    <!-- SignalR -->
+    <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
+    
+    <!-- Comment constants -->
+    <script src="~/js/commentConstants.js"></script>
+    
+    <!-- Comment script -->
+    <script src="~/js/comments.js"></script>
+
     <script>
+        // Vote functionality
         function voteArticle(articleId, isUpvote) {
-            const isAlreadyVoted = 
-                (isUpvote && document.querySelector('.btn-outline-success.active')) ||
-                (!isUpvote && document.querySelector('.btn-outline-danger.active'));
-                
-            // Even if already voted, we'll use the same endpoint
-            // The backend will handle removing or toggling the vote
-            fetch(`/Articles/Vote/${articleId}?isUpvote=${isUpvote}`, {
+            const token = document.querySelector("#antiForgeryForm input[name='__RequestVerificationToken']").value;
+            
+            fetch(`/ArticleVotes/Vote`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                }
+                    'RequestVerificationToken': token
+                },
+                body: JSON.stringify({ articleId, isUpvote })
             })
             .then(response => {
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    return response.text().then(text => {
-                        try {
-                            const data = JSON.parse(text);
-                            alert(data.message || 'An error occurred while voting.');
-                        } catch (e) {
-                            if (text.includes('Forbidden')) {
-                                alert('You do not have permission to vote on articles.');
-                            } else {
-                                alert('An error occurred while voting.');
-                            }
-                        }
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.message || 'Failed to process vote');
                     });
                 }
+                return response.json();
+            })
+            .then(data => {
+                // Update vote counts and score
+                const upvoteBtn = document.querySelector('.btn-outline-success');
+                const downvoteBtn = document.querySelector('.btn-outline-danger');
+                const scoreEl = document.querySelector('.badge');
+                
+                // Update UI
+                upvoteBtn.innerHTML = `<i class="bi bi-hand-thumbs-up"></i> ${data.upvoteCount}`;
+                downvoteBtn.innerHTML = `<i class="bi bi-hand-thumbs-down"></i> ${data.downvoteCount}`;
+                scoreEl.textContent = `Score: ${data.score}`;
+                
+                // Update class for score color
+                scoreEl.className = `badge rounded-pill ms-2 ${data.score > 0 ? 'bg-success' : (data.score < 0 ? 'bg-danger' : 'bg-secondary')}`;
+                
+                // Update active state
+                upvoteBtn.classList.toggle('active', data.userVote && data.userVote.isUpvote);
+                downvoteBtn.classList.toggle('active', data.userVote && !data.userVote.isUpvote);
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred while voting.');
+                alert(error.message);
             });
         }
+        
+        // Initialize comments with user info
+        $(document).ready(function() {
+            @{
+                var currentUser = await UserManager.GetUserAsync(User);
+                var currentUserId = currentUser?.Id ?? string.Empty;
+                var canComment = currentUser != null && (currentUser.CanCommentArticles || currentUser.IsAdmin);
+                var profilePicture = currentUser?.ProfilePicture ?? "/images/default-profile.jpg";
+                // Ensure article ID is a number
+                var articleId = ViewBag.ArticleId;
+            }
+            
+            console.log("Initializing comments with article ID: @articleId");
+            
+            // Check if function is defined before calling
+            if (typeof initializeComments === 'function') {
+                initializeComments({
+                    currentUserId: '@(currentUserId)',
+                    canComment: @Json.Serialize(canComment),
+                    articleId: @articleId, // Pass as a number, not a string
+                    currentUserProfilePicture: '@(profilePicture)'
+                });
+            } else {
+                console.error("initializeComments function is not defined. Check if comments.js is loaded correctly.");
+            }
+        });
     </script>
 }

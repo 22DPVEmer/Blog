@@ -7,11 +7,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Blog.Core.Interfaces;
-
+using Blog.Core.Constants;
 
 namespace Blog.Web.Controllers
 {
     [Authorize]
+    [Route(CommentConstants.ApiRoutes.ControllerRoot)]
     public class ProfileController : Controller
     {
         private readonly UserManager<User> _userManager;
@@ -28,7 +29,7 @@ namespace Blog.Web.Controllers
             _logger = logger;
         }
 
-        [HttpPost]
+        [HttpPost(UserConstants.ApiRoutes.UploadProfilePicture)]
         public async Task<IActionResult> UploadProfilePicture()
         {
             try
@@ -36,16 +37,22 @@ namespace Blog.Web.Controllers
                 var user = await _userManager.GetUserAsync(User);
                 if (user == null)
                 {
-                    return NotFound("User not found.");
+                    return StatusCode(
+                        CommentConstants.HttpStatusCodes.NotFound,
+                        UserConstants.Messages.UserNotFound
+                    );
                 }
 
-                var file = Request.Form.Files.GetFile("profilePicture");
+                var file = Request.Form.Files.GetFile(UserConstants.FormFieldNames.ProfilePicture);
                 if (file == null)
                 {
-                    return BadRequest("No file uploaded.");
+                    return StatusCode(
+                        CommentConstants.HttpStatusCodes.BadRequest,
+                        UserConstants.Messages.NoFileUploaded
+                    );
                 }
 
-                _logger.LogInformation("Processing profile picture upload for user {UserId}", user.Id);
+                _logger.LogInformation(UserConstants.LogMessages.ProcessingProfilePictureUpload, user.Id);
 
                 // Delete old profile picture if it exists
                 if (!string.IsNullOrEmpty(user.ProfilePicture))
@@ -53,11 +60,11 @@ namespace Blog.Web.Controllers
                     try
                     {
                         await _firebaseStorageService.DeleteImageAsync(user.ProfilePicture);
-                        _logger.LogInformation("Deleted old profile picture");
+                        _logger.LogInformation(UserConstants.LogMessages.DeletedOldProfilePicture);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to delete old profile picture");
+                        _logger.LogWarning(ex, UserConstants.LogMessages.FailedToDeleteOldProfilePicture);
                     }
                 }
 
@@ -71,20 +78,32 @@ namespace Blog.Web.Controllers
                 var result = await _userManager.UpdateAsync(user);
                 if (!result.Succeeded)
                 {
-                    return BadRequest("Failed to update profile picture.");
+                    return StatusCode(
+                        CommentConstants.HttpStatusCodes.BadRequest,
+                        UserConstants.Messages.ProfilePictureUpdateFailed
+                    );
                 }
 
-                return Json(new { success = true, imageUrl });
+                return Json(new { 
+                    success = true, 
+                    imageUrl = imageUrl 
+                });
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning(ex, "Validation error during profile picture upload");
-                return BadRequest(ex.Message);
+                _logger.LogWarning(ex, UserConstants.LogMessages.ValidationErrorDuringUpload);
+                return StatusCode(
+                    CommentConstants.HttpStatusCodes.BadRequest,
+                    ex.Message
+                );
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error uploading profile picture");
-                return StatusCode(500, "An error occurred while uploading the profile picture.");
+                _logger.LogError(ex, UserConstants.LogMessages.ErrorUploadingProfilePicture);
+                return StatusCode(
+                    CommentConstants.HttpStatusCodes.InternalServerError,
+                    UserConstants.Messages.ProfilePictureUploadError
+                );
             }
         }
     }

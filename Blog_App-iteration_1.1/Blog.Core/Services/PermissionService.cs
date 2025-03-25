@@ -47,13 +47,30 @@ namespace Blog.Core.Services
                 .AnyAsync(pr => pr.UserId == userId && pr.Status == PermissionRequestStatus.Pending && pr.RequestType == PermissionRequestType.VoteArticle);
         }
 
-        public async Task CreatePermissionRequestAsync(string userId, string reason, bool isVotePermission = false)
+        public async Task<bool> HasPendingCommentRequestAsync(string userId)
         {
+            return await _context.PermissionRequests
+                .AnyAsync(pr => pr.UserId == userId && pr.Status == PermissionRequestStatus.Pending && pr.RequestType == PermissionRequestType.CommentArticle);
+        }
+
+        public async Task CreatePermissionRequestAsync(string userId, string reason, bool isVoteRequest, bool isCommentRequest = false)
+        {
+            var requestType = PermissionRequestType.WriteArticle; // Default
+            
+            if (isVoteRequest)
+            {
+                requestType = PermissionRequestType.VoteArticle;
+            }
+            else if (isCommentRequest)
+            {
+                requestType = PermissionRequestType.CommentArticle;
+            }
+            
             var request = new PermissionRequest
             {
                 UserId = userId,
                 Reason = reason,
-                RequestType = isVotePermission ? PermissionRequestType.VoteArticle : PermissionRequestType.WriteArticle
+                RequestType = requestType
             };
 
             _context.PermissionRequests.Add(request);
@@ -86,6 +103,10 @@ namespace Blog.Core.Services
                 else if (request.RequestType == PermissionRequestType.VoteArticle)
                 {
                     request.User.CanVoteArticles = true;
+                }
+                else if (request.RequestType == PermissionRequestType.CommentArticle)
+                {
+                    request.User.CanCommentArticles = true;
                 }
             }
 
