@@ -284,42 +284,6 @@ namespace Blog.Web.Controllers
             }
         }
 
-        // POST: Articles/Vote/5
-        [HttpPost(CommentConstants.ApiRoutes.Vote)]
-        [ValidateAntiForgeryToken]
-        [Authorize]
-        public async Task<IActionResult> Vote(int id, bool isUpvote)
-        {
-            try
-            {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
-                {
-                    return StatusCode(
-                        CommentConstants.HttpStatusCodes.Unauthorized, 
-                        new { message = ArticleConstants.Messages.UserNotFound }
-                    );
-                }
 
-                if (!user.CanVoteArticles && !user.IsAdmin)
-                {
-                    return Forbid();
-                }
-
-                await _articleService.VoteArticleAsync(id, user.Id, isUpvote);
-                return RedirectToAction(nameof(Details), new { id });
-            }
-            catch (UnauthorizedAccessException)
-            {
-                TempData["ErrorMessage"] = CommentConstants.ErrorMessages.NoPermissionToRankArticles;
-                return RedirectToAction(nameof(Details), new { id });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, LogConstants.Articles.VoteError, id);
-                TempData["ErrorMessage"] = CommentConstants.ErrorMessages.ArticleVoteError;
-                return RedirectToAction(nameof(Details), new { id });
-            }
-        }
     }
 }

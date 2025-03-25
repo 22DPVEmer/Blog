@@ -68,7 +68,7 @@ namespace Blog.Web.Controllers
         }
 
         [HttpGet(CommentConstants.ApiRoutes.Request)]
-        public async Task<IActionResult> RequestPermission([FromQuery] string type = null)
+        public async Task<IActionResult> Request([FromQuery] string type = null)
         {
             var user = await _userManager.GetUserAsync(User);
             
@@ -116,7 +116,7 @@ namespace Blog.Web.Controllers
 
         [HttpPost(CommentConstants.ApiRoutes.Request)]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SubmitPermissionRequest(PermissionRequestViewModel model)
+        public async Task<IActionResult> Request(PermissionRequestViewModel model)
         {
             if (string.IsNullOrWhiteSpace(model.Reason))
             {
@@ -224,22 +224,19 @@ namespace Blog.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        [Authorize(Roles = "Administrator,Editor")]
-        [HttpPost(CommentConstants.ApiRoutes.Process)]
+        [HttpPost]
+        [Route("Process")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ProcessPermissionRequest(int requestId, bool approved, string type)
+        public async Task<IActionResult> ProcessPermissionRequest(int id, bool approved, string rejectionReason = null)
         {
-            var admin = await _userManager.GetUserAsync(User);
-            if (admin == null || !admin.IsAdmin)
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null || !user.IsAdmin)
             {
                 return Forbid();
             }
 
-            await _permissionService.ProcessPermissionRequestAsync(requestId, admin.Id, approved, string.Empty);
-
-            TempData["SuccessMessage"] = string.Format(
-                PermissionConstants.Messages.RequestProcessed, 
-                approved ? PermissionConstants.ApprovalStatus.Approved : PermissionConstants.ApprovalStatus.Rejected);
+            await _permissionService.ProcessPermissionRequestAsync(id, user.Id, approved, rejectionReason);
+            TempData["SuccessMessage"] = approved ? "Permission request approved successfully." : "Permission request rejected successfully.";
             return RedirectToAction(nameof(Index));
         }
     }

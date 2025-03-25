@@ -147,7 +147,7 @@
         function voteArticle(articleId, isUpvote) {
             const token = document.querySelector("#antiForgeryForm input[name='__RequestVerificationToken']").value;
             
-            fetch(`/ArticleVotes/Vote`, {
+            fetch(`/api/articlevotes/vote`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
