@@ -1,0 +1,58 @@
+@model Blog.Infrastructure.Entities.Article
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h3 class="h5 mb-3">
+            <a href="@Url.Action("Details", "Articles", new { id = Model.Id })" class="text-decoration-none">@Model.Title</a>
+        </h3>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="article-meta">
+                <span class="text-muted">
+                    <i class="bi bi-person"></i> @Model.User?.UserName
+                    <span class="mx-2">•</span>
+                    <i class="bi bi-calendar"></i> @Model.PublishedAt?.ToString("MMM dd, yyyy")
+                </span>
+            </div>
+            <div class="article-votes">
+                @if (User.Identity.IsAuthenticated)
+                {
+                    <form id="antiForgeryForm">
+                        @Html.AntiForgeryToken()
+                    </form>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-success @(ViewBag.UserVote?.IsUpvote == true ? "active" : "")" 
+                                onclick="voteArticle(@Model.Id, true)">
+                            <i class="bi bi-hand-thumbs-up"></i>
+                            <span class="upvote-count">@Model.UpvoteCount</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger @(ViewBag.UserVote?.IsUpvote == false ? "active" : "")" 
+                                onclick="voteArticle(@Model.Id, false)">
+                            <i class="bi bi-hand-thumbs-down"></i>
+                            <span class="downvote-count">@Model.DownvoteCount</span>
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+        <p class="card-text intro-text">@Model.Content</p>
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="btn-group">
+                <a href="@Url.Action("Details", "Articles", new { id = Model.Id })" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-book"></i> Read More
+                </a>
+                @if (User.Identity.IsAuthenticated && Model.UserId == ViewBag.CurrentUserId)
+                {
+                    <a href="@Url.Action("Edit", "Articles", new { id = Model.Id })" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteArticle(@Model.Id)">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                }
+            </div>
+            <small class="text-muted">
+                <i class="bi bi-chat"></i> @Model.Comments?.Count comments
+            </small>
+        </div>
+    </div>
+</div>
