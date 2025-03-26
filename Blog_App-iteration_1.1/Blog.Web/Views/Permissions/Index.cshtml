@@ -183,6 +183,9 @@
 </div>
 
 @section Scripts {
+    <!-- API Endpoints -->
+    <script src="~/js/apiEndpoints.js"></script>
+
     <script>
         let rejectionModal;
         let rejectionReasonModal;
@@ -220,7 +223,7 @@
         function processRequest(id, approved, rejectionReason = null) {
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = '/Permissions/Process';
+            form.action = API_ENDPOINTS.PERMISSIONS.PROCESS;
 
             const idInput = document.createElement('input');
             idInput.type = 'hidden';

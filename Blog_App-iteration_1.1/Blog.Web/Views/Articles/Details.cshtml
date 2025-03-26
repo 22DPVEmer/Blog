@@ -136,6 +136,9 @@
     <!-- SignalR -->
     <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
     
+    <!-- API Endpoints -->
+    <script src="~/js/apiEndpoints.js"></script>
+    
     <!-- Comment constants -->
     <script src="~/js/commentConstants.js"></script>
     
@@ -147,7 +150,7 @@
         function voteArticle(articleId, isUpvote) {
             const token = document.querySelector("#antiForgeryForm input[name='__RequestVerificationToken']").value;
             
-            fetch(`/api/articlevotes/vote`, {
+            fetch(API_ENDPOINTS.ARTICLE_VOTES.VOTE, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
