@@ -8,11 +8,12 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Blog.Core.Constants;
 using System;
+using Blog.Web.Models;
 
 namespace Blog.Web.Controllers
 {
     [Authorize]
-    [Route(CommentConstants.ApiRoutes.ControllerRoot)]
+    [Route("api/[controller]")]
     public class ArticleVotesController : Controller
     {
         private readonly IArticleVoteService _articleVoteService;
@@ -29,9 +30,10 @@ namespace Blog.Web.Controllers
             _logger = logger;
         }
 
-        [HttpPost(CommentConstants.ApiRoutes.Vote)]
+        [HttpPost]
+        [Route("Vote")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Vote(int articleId, bool isUpvote)
+        public async Task<IActionResult> Vote([FromBody] ArticleVoteModel model)
         {
             try
             {
@@ -49,23 +51,22 @@ namespace Blog.Web.Controllers
                 }
 
                 // Process the vote
-                var (success, voteMessage, article) = await _articleVoteService.VoteArticleAsync(articleId, user.Id, isUpvote);
+                var (success, voteMessage, article) = await _articleVoteService.VoteArticleAsync(model.ArticleId, user.Id, model.IsUpvote);
                 
                 if (!success)
                 {
-                    return NotFound(new { success = false, message = voteMessage });
+                    return BadRequest(new { success = false, message = voteMessage });
                 }
 
                 return Json(new { 
                     success = true, 
-                    upvotes = article.UpvoteCount, 
-                    downvotes = article.DownvoteCount,
+                    upvoteCount = article.UpvoteCount, 
+                    downvoteCount = article.DownvoteCount,
                     score = article.UpvoteCount - article.DownvoteCount
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, VoteConstants.LogMessages.ErrorProcessingVote, articleId);
                 return StatusCode(CommentConstants.HttpStatusCodes.InternalServerError, new { success = false, message = VoteConstants.Messages.ErrorProcessingVote });
             }
         }

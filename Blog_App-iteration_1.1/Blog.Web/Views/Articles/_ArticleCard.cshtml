@@ -1,0 +1,57 @@
+@model Blog.Infrastructure.Entities.Article
+
+<div class="card mb-4 shadow-sm">
+    <div class="row g-0">
+        <div class="col-md-4">
+            @if (!string.IsNullOrEmpty(Model.FeaturedImage))
+            {
+                <img src="@Model.FeaturedImage" class="img-fluid rounded-start h-100" alt="@Model.Title" 
+                     style="object-fit: cover;">
+            }
+        </div>
+        <div class="col-md-8">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <h5 class="card-title">@Model.Title</h5>
+                    <div class="article-votes">
+                        <span class="badge rounded-pill bg-success">
+                            <i class="bi bi-hand-thumbs-up"></i> @Model.UpvoteCount
+                        </span>
+                        <span class="badge rounded-pill bg-danger">
+                            <i class="bi bi-hand-thumbs-down"></i> @Model.DownvoteCount
+                        </span>
+                        <span class="badge rounded-pill @(Model.Score > 0 ? "bg-success" : (Model.Score < 0 ? "bg-danger" : "bg-secondary"))">
+                            Score: @Model.Score
+                        </span>
+                    </div>
+                </div>
+                <p class="card-text intro-text">@Model.Intro</p>
+                <p class="card-text text-muted small">
+                    <i class="bi bi-person"></i> @Model.User.UserName
+                    <span class="mx-2">•</span>
+                    <i class="bi bi-calendar"></i> @Model.PublishedAt?.ToString("MMM dd, yyyy")
+                </p>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-primary btn-sm">
+                        Read More <i class="bi bi-arrow-right"></i>
+                    </a>
+                    @if (User.Identity.IsAuthenticated && 
+                        (Model.UserId == UserManager.GetUserId(User) || 
+                         User.IsInRole("Administrator")))
+                    {
+                        <div class="btn-group">
+                            <a asp-action="Edit" asp-route-id="@Model.Id" 
+                               class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@Model.Id" 
+                               class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

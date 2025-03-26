@@ -7,7 +7,7 @@
 <div class="container mt-4">
     <div class="row mb-4">
         <div class="col-md-8">
-            <h1 class="display-4">Articles</h1>
+            <h1 class="display-4">Blog Articles</h1>
         </div>
         <div class="col-md-4 text-end">
             @if (User.Identity.IsAuthenticated && (await UserManager.GetUserAsync(User)).CanWriteArticles)
@@ -49,12 +49,7 @@
                     <option value="month" selected="@(Context.Request.Query["dateFilter"] == "month")">This Month</option>
                     <option value="year" selected="@(Context.Request.Query["dateFilter"] == "year")">This Year</option>
                 </select>
-                <select name="sortBy" class="form-select" style="width: auto;">
-                    <option value="newest" selected="@(ViewBag.CurrentSortBy == "newest" || ViewBag.CurrentSortBy == null)">Newest</option>
-                    <option value="popular" selected="@(ViewBag.CurrentSortBy == "popular")">Most Popular</option>
-                    <option value="mostupvoted" selected="@(ViewBag.CurrentSortBy == "mostupvoted")">Most Upvoted</option>
-                    <option value="mostdownvoted" selected="@(ViewBag.CurrentSortBy == "mostdownvoted")">Most Downvoted</option>
-                </select>
+ 
                 <button type="submit" class="btn btn-outline-primary">
                     <i class="bi bi-search"></i> Search
                 </button>
@@ -62,81 +57,61 @@
         </div>
     </div>
 
-    @if (!Model.Any())
-    {
-        <div class="text-center my-5">
-            <div class="display-6 text-muted mb-3">No Articles Found</div>
-            <p class="lead">
-                @if (Context.Request.Query.Count > 0)
+    <div class="row">
+        @if (!string.IsNullOrEmpty(ViewBag.SearchTerm))
+        {
+            <div class="col-12">
+                @if (!Model.Any())
                 {
-                    <span>No articles match your search criteria. Try adjusting your filters or search terms.</span>
+                    <div class="text-center my-5">
+                        <div class="display-6 text-muted mb-3">No Articles Found</div>
+                        <p class="lead">
+                            <span>No articles match your search criteria. Try adjusting your filters or search terms.</span>
+                        </p>
+                    </div>
                 }
                 else
                 {
-                    <span>There are no articles published yet. Check back later!</span>
+                    <h2 class="h4 mb-4">Search Results</h2>
+                    @foreach (var item in Model)
+                    {
+                        <partial name="_ArticleCard" model="item" />
+                    }
                 }
-            </p>
-        </div>
-    }
-    else
-    {
-        <div class="row">
-            @foreach (var item in Model)
-            {
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100 shadow-sm">
-                        @if (!string.IsNullOrEmpty(item.FeaturedImage))
-                        {
-                            <img src="@item.FeaturedImage" class="card-img-top" alt="@item.Title" 
-                                 style="height: 200px; object-fit: cover;">
-                        }
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between">
-                                <h5 class="card-title">@item.Title</h5>
-                                <div class="article-votes">
-                                    <span class="badge rounded-pill bg-success">
-                                        <i class="bi bi-hand-thumbs-up"></i> @item.UpvoteCount
-                                    </span>
-                                    <span class="badge rounded-pill bg-danger">
-                                        <i class="bi bi-hand-thumbs-down"></i> @item.DownvoteCount
-                                    </span>
-                                    <span class="badge rounded-pill @(item.Score > 0 ? "bg-success" : (item.Score < 0 ? "bg-danger" : "bg-secondary"))">
-                                        Score: @item.Score
-                                    </span>
-                                </div>
-                            </div>
-                            <p class="card-text intro-text">@item.Intro</p>
-                            <p class="card-text text-muted small">
-                                <i class="bi bi-person"></i> @item.User.UserName
-                                <span class="mx-2">•</span>
-                                <i class="bi bi-calendar"></i> @item.PublishedAt?.ToString("MMM dd, yyyy")
-                            </p>
-                            <div class="d-flex justify-content-between align-items-center mt-3">
-                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-primary btn-sm">
-                                    Read More <i class="bi bi-arrow-right"></i>
-                                </a>
-                                @if (User.Identity.IsAuthenticated && 
-                                    (item.UserId == UserManager.GetUserId(User) || 
-                                     User.IsInRole("Administrator")))
-                                {
-                                    <div class="btn-group">
-                                        <a asp-action="Edit" asp-route-id="@item.Id" 
-                                           class="btn btn-outline-secondary btn-sm">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                        <a asp-action="Delete" asp-route-id="@item.Id" 
-                                           class="btn btn-outline-danger btn-sm">
-                                            <i class="bi bi-trash"></i>
-                                        </a>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
+            </div>
+        }
+        else
+        {
+            <div class="col-md-4">
+                <div class="mb-4">
+                    <h2 class="h4 mb-4">Latest Articles</h2>
+                    @foreach (var item in ViewBag.LatestArticles)
+                    {
+                        <partial name="_ArticleCard" model="item" />
+                    }
                 </div>
-            }
-        </div>
-    }
+            </div>
+            <div class="col-md-4">
+                <div class="mb-4">
+                    <h2 class="h4 mb-4">Top Ranked Articles</h2>
+                    @foreach (var item in Model.OrderByDescending(a => a.Score).Take(3))
+                    {
+                        <partial name="_ArticleCard" model="item" />
+                    }
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-4">
+                    <h2 class="h4 mb-4">Recently Commented</h2>
+                    @foreach (var item in Model.OrderByDescending(a => a.Comments.Any() ? a.Comments.Max(c => c.CreatedAt) : DateTime.MinValue).Take(3))
+                    {
+                        <partial name="_ArticleCard" model="item" />
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
 </div>
 
 @section Styles {

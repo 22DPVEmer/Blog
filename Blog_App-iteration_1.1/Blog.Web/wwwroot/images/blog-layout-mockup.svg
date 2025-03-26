@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect width="800" height="600" fill="#f8f9fa"/>
+    
+    <!-- Container -->
+    <g transform="translate(20,20)">
+        <!-- Header Section -->
+        <rect width="760" height="60" fill="#ffffff" stroke="#dee2e6"/>
+        <text x="20" y="38" font-family="Arial" font-size="24" fill="#212529">Blog Articles</text>
+        <rect x="600" y="15" width="120" height="30" rx="4" fill="#0d6efd"/>
+        <text x="620" y="35" font-family="Arial" font-size="14" fill="#ffffff">Create New</text>
+        
+        <!-- Search Bar -->
+        <g transform="translate(0,80)">
+            <rect width="760" height="50" fill="#ffffff" stroke="#dee2e6"/>
+            <rect x="20" y="10" width="300" height="30" rx="4" fill="#ffffff" stroke="#ced4da"/>
+            <text x="35" y="30" font-family="Arial" font-size="14" fill="#6c757d">Search articles...</text>
+            <rect x="340" y="10" width="120" height="30" rx="4" fill="#ffffff" stroke="#ced4da"/>
+            <text x="355" y="30" font-family="Arial" font-size="14" fill="#6c757d">Filter</text>
+        </g>
+        
+        <!-- Main Content Area -->
+        <g transform="translate(0,150)">
+            <!-- Latest Articles Section -->
+            <rect width="500" height="410" fill="#ffffff" stroke="#dee2e6"/>
+            <text x="20" y="30" font-family="Arial" font-size="18" fill="#212529">Latest Articles</text>
+            <!-- Article Cards -->
+            <g transform="translate(20,50)">
+                <rect width="460" height="100" fill="#ffffff" stroke="#dee2e6"/>
+                <rect width="460" height="100" y="110" fill="#ffffff" stroke="#dee2e6"/>
+                <rect width="460" height="100" y="220" fill="#ffffff" stroke="#dee2e6"/>
+            </g>
+        </g>
+        
+        <!-- Sidebar -->
+        <g transform="translate(520,150)">
+            <!-- Top Ranked Articles -->
+            <rect width="240" height="200" fill="#ffffff" stroke="#dee2e6"/>
+            <text x="20" y="30" font-family="Arial" font-size="16" fill="#212529">Top Ranked Articles</text>
+            <line x1="20" y1="40" x2="220" y2="40" stroke="#dee2e6"/>
+            <g transform="translate(20,50)">
+                <rect width="200" height="40" fill="#ffffff" stroke="#dee2e6"/>
+                <rect width="200" height="40" y="45" fill="#ffffff" stroke="#dee2e6"/>
+                <rect width="200" height="40" y="90" fill="#ffffff" stroke="#dee2e6"/>
+            </g>
+            
+            <!-- Recently Commented -->
+            <g transform="translate(0,210)">
+                <rect width="240" height="200" fill="#ffffff" stroke="#dee2e6"/>
+                <text x="20" y="30" font-family="Arial" font-size="16" fill="#212529">Recently Commented</text>
+                <line x1="20" y1="40" x2="220" y2="40" stroke="#dee2e6"/>
+                <g transform="translate(20,50)">
+                    <rect width="200" height="40" fill="#ffffff" stroke="#dee2e6"/>
+                    <rect width="200" height="40" y="45" fill="#ffffff" stroke="#dee2e6"/>
+                    <rect width="200" height="40" y="90" fill="#ffffff" stroke="#dee2e6"/>
+                </g>
+            </g>
+        </g>
+    </g>
+    
+    <!-- Responsive Indicators -->
+    <g transform="translate(20,550)">
+        <text font-family="Arial" font-size="12" fill="#6c757d">
+            * Sidebar stacks below main content on mobile devices
+        </text>
+    </g>
+</svg>

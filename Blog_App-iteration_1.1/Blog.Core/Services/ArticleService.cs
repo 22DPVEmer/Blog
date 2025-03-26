@@ -41,6 +41,7 @@ namespace Blog.Core.Services
         {
             var query = _context.Articles
                 .Include(a => a.User)
+                .Include(a => a.Comments)
                 .AsQueryable();
 
             // Apply search filter
@@ -106,6 +107,30 @@ namespace Blog.Core.Services
 
             return await query.ToListAsync();
         }
+
+        public async Task<IEnumerable<Article>> GetLatestArticlesAsync(int count = 5)
+        {
+            var articles = await GetPublishedArticlesAsync(null, DateFilter.All, VoteConstants.SortOptions.Newest);
+            return articles.Take(count);
+        }
+
+        public async Task<IEnumerable<Article>> GetTopRankedArticlesAsync(int count = 3)
+        {
+            var articles = await GetPublishedArticlesAsync(null, DateFilter.All, VoteConstants.SortOptions.Popular);
+            return articles.Take(count);
+        }
+
+        public async Task<IEnumerable<Article>> GetRecentlyCommentedArticlesAsync(int count = 3)
+        {
+            return await _context.Articles
+                .Include(a => a.User)
+                .Include(a => a.Comments)
+                .Where(a => a.Comments.Any())
+                .OrderByDescending(a => a.Comments.Max(c => c.CreatedAt))
+                .Take(count)
+                .ToListAsync();
+        }
+        
 
         public async Task<Article> GetArticleDetailsAsync(int id)
         {

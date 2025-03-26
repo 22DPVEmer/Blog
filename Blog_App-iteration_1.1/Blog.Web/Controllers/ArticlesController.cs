@@ -44,10 +44,28 @@ namespace Blog.Web.Controllers
                     }
                 }
 
-                var articles = await _articleService.GetPublishedArticlesAsync(searchTerm, dateFilter, sortBy);
+                // Get latest articles
+                var latestArticles = await _articleService.GetLatestArticlesAsync();
+                ViewBag.LatestArticles = latestArticles;
+
+                // Get top ranked articles
+                var topRankedArticles = await _articleService.GetTopRankedArticlesAsync();
+                ViewBag.TopRankedArticles = topRankedArticles;
+
+                // Get recently commented articles
+                var recentlyCommentedArticles = await _articleService.GetRecentlyCommentedArticlesAsync();
+                ViewBag.RecentlyCommentedArticles = recentlyCommentedArticles;
+
+                // Get search results if search term is provided
+                var searchResults = !string.IsNullOrEmpty(searchTerm) ?
+                    await _articleService.GetPublishedArticlesAsync(searchTerm, dateFilter, sortBy) :
+                    latestArticles;
+
                 ViewBag.CurrentDateFilter = dateFilterStr; // Keep the current filter for the view
                 ViewBag.CurrentSortBy = sortBy; // Keep the current sort for the view
-                return View(articles);
+                ViewBag.SearchTerm = searchTerm; // Keep the search term for the view
+
+                return View(searchResults);
             }
             catch (Exception ex)
             {
@@ -284,42 +302,6 @@ namespace Blog.Web.Controllers
             }
         }
 
-        // POST: Articles/Vote/5
-        [HttpPost(CommentConstants.ApiRoutes.Vote)]
-        [ValidateAntiForgeryToken]
-        [Authorize]
-        public async Task<IActionResult> Vote(int id, bool isUpvote)
-        {
-            try
-            {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
-                {
-                    return StatusCode(
-                        CommentConstants.HttpStatusCodes.Unauthorized, 
-                        new { message = ArticleConstants.Messages.UserNotFound }
-                    );
-                }
 
-                if (!user.CanVoteArticles && !user.IsAdmin)
-                {
-                    return Forbid();
-                }
-
-                await _articleService.VoteArticleAsync(id, user.Id, isUpvote);
-                return RedirectToAction(nameof(Details), new { id });
-            }
-            catch (UnauthorizedAccessException)
-            {
-                TempData["ErrorMessage"] = CommentConstants.ErrorMessages.NoPermissionToRankArticles;
-                return RedirectToAction(nameof(Details), new { id });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, LogConstants.Articles.VoteError, id);
-                TempData["ErrorMessage"] = CommentConstants.ErrorMessages.ArticleVoteError;
-                return RedirectToAction(nameof(Details), new { id });
-            }
-        }
     }
 }
