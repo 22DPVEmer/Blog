@@ -34,7 +34,8 @@ namespace Blog.Infrastructure.Entities
         [ForeignKey("ParentCommentId")]
         public Comment ParentComment { get; set; }
         
-
+        // Flag to determine if comment is blocked by admin
+        public bool IsBlocked { get; set; }
         
         public virtual ICollection<Comment> Replies { get; set; }
         public virtual ICollection<Report> Reports { get; set; }
@@ -44,6 +45,7 @@ namespace Blog.Infrastructure.Entities
             Replies = new HashSet<Comment>();
             Reports = new HashSet<Report>();
             CreatedAt = DateTime.UtcNow;
+            IsBlocked = false;
         }
     }
 }

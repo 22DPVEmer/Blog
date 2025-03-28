@@ -36,5 +36,25 @@ namespace Blog.Core.Interfaces
         /// Checks if a user can comment on articles
         /// </summary>
         Task<(bool canComment, string message)> CanUserCommentAsync(string userId);
+        
+        /// <summary>
+        /// Reports a comment
+        /// </summary>
+        Task ReportCommentAsync(int commentId, string userId, string reason, string description);
+        
+        /// <summary>
+        /// Sets the block status of a comment
+        /// </summary>
+        Task<CommentViewModel> SetCommentBlockStatusAsync(int commentId, bool isBlocked);
+        
+        /// <summary>
+        /// Gets all reported comments for admin review
+        /// </summary>
+        Task<IEnumerable<ReportViewModel>> GetReportedCommentsAsync();
+        
+        /// <summary>
+        /// Resolves or unresolves a report based on the isResolved parameter
+        /// </summary>
+        Task ResolveReportAsync(int reportId, bool isResolved = true);
     }
 } 

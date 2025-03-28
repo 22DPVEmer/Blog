@@ -24,6 +24,8 @@ namespace Blog.Core.Models
         public int ArticleId { get; set; }
         
         public int? ParentCommentId { get; set; }
+        
+        public bool IsBlocked { get; set; }
     }
     
     public class CreateCommentViewModel

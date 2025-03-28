@@ -1,6 +1,6 @@
 // Comments JavaScript functionality
 window.initializeComments = function(options) {
-    const { currentUserId, canComment, articleId, currentUserProfilePicture } = options;
+    const { currentUserId, canComment, articleId, currentUserProfilePicture, isAdmin = false } = options;
     
     // Log user information for debugging
     console.log("Comment initialization with currentUserId:", currentUserId, "articleId:", articleId);
@@ -10,6 +10,9 @@ window.initializeComments = function(options) {
     
     // Store loaded comments
     let commentsCache = [];
+    
+    // Create modals for report and block functionality
+    createReportModal();
     
     // Initialize when document is ready
     $(document).ready(function() {
@@ -78,6 +81,19 @@ window.initializeComments = function(options) {
             deleteComment(commentId);
         });
         
+        // Handle report comment button clicks
+        $(document).on("click", ".report-comment-btn", function() {
+            const commentId = $(this).data("id");
+            openReportModal(commentId);
+        });
+        
+        // Handle block/unblock comment button clicks
+        $(document).on("click", ".block-comment-btn", function() {
+            const commentId = $(this).data("id");
+            const isBlocked = $(this).data("is-blocked");
+            toggleCommentBlock(commentId, !isBlocked);
+        });
+        
         // Handle reply button clicks
         $(document).on("click", ".reply-comment-btn", function() {
             const commentId = $(this).data("id");
@@ -100,6 +116,12 @@ window.initializeComments = function(options) {
         $(document).on("click", ".collapsed-indicator", function() {
             const threadId = $(this).closest(".comment-thread").attr("id").replace("thread-", "");
             toggleReplies(threadId);
+        });
+        
+        // Handle report form submission
+        $(document).on("submit", "#reportCommentForm", function(e) {
+            e.preventDefault();
+            submitReportComment();
         });
     });
     
@@ -195,15 +217,16 @@ window.initializeComments = function(options) {
         }, 10000);
         
         $.ajax({
-            url: `/Comments/Article/${articleId}`,
+            url: `${API_ENDPOINTS.COMMENTS.GET_ARTICLE_COMMENTS}${articleId}`,
             method: "GET",
             success: function(comments) {
                 clearTimeout(loadingTimeout); // Clear the timeout on success
+                
+                // Store all comments in cache for reference
                 commentsCache = comments;
                 
-                // Update total comment count (including replies)
-                const totalComments = comments.length;
-                $("#totalCommentCount").text(totalComments);
+                // Update total comment count
+                $("#totalCommentCount").text(comments.length);
                 
                 renderComments(comments);
             },
@@ -232,11 +255,13 @@ window.initializeComments = function(options) {
         
         const parentTemplate = document.getElementById("commentTemplate").innerHTML;
         const replyTemplate = document.getElementById("replyTemplate").innerHTML;
+        
+        // Group comments by their parent
         const commentsByParent = groupCommentsByParent(comments);
         
         // First render all parent comments (those with no parent)
         commentsByParent[null]?.forEach(comment => {
-            // Count replies for this comment
+            // Only count visible replies - for admin or non-blocked comments
             const replies = commentsByParent[comment.id] || [];
             comment.replyCount = replies.length;
             
@@ -272,52 +297,47 @@ window.initializeComments = function(options) {
     }
     
     function renderCommentHtml(comment, template, hasReplies) {
-        const createdDate = new Date(comment.createdAt).toLocaleString();
-        
-        // Only allow editing if the user is logged in (currentUserId is not empty) and owns the comment
-        const isLoggedIn = currentUserId && currentUserId.trim() !== "";
-        const isOwner = isLoggedIn && String(currentUserId) === String(comment.userId);
-        
-        // Log information for debugging
-        console.log(`Comment ${comment.id} by user ${comment.userId}, current user: ${currentUserId}, isLoggedIn: ${isLoggedIn}, isOwner: ${isOwner}`);
-        
-        // Completely hide buttons if not the owner
-        const displayStyle = isOwner ? 'flex' : 'none';
+        const isAuthor = currentUserId && String(comment.userId) === String(currentUserId);
+        const toggleDisplay = hasReplies ? "inline-block" : "none";
         
         return template
-            .replace(/{id}/g, comment.id)
-            .replace(/{userId}/g, comment.userId)
-            .replace(/{content}/g, comment.content)
-            .replace(/{userName}/g, comment.userName)
-            .replace(/{userProfilePicture}/g, comment.userProfilePicture || CommentConstants.DefaultProfileImage)
-            .replace(/{createdAt}/g, createdDate)
-            .replace(/{actionsDisplay}/g, displayStyle)
-            .replace(/{replyDisplay}/g, canComment ? 'block' : 'none')
-            .replace(/{toggleDisplay}/g, hasReplies ? 'inline-block' : 'none')
-            .replace(/{replyCount}/g, comment.replyCount || 0);
+            .replace(/\{id\}/g, comment.id)
+            .replace(/\{content\}/g, comment.content)
+            .replace(/\{userName\}/g, comment.userName)
+            .replace(/\{userId\}/g, comment.userId)
+            .replace(/\{createdAt\}/g, new Date(comment.createdAt).toLocaleString())
+            .replace(/\{userProfilePicture\}/g, comment.userProfilePicture || '/images/default-profile.jpg')
+            .replace(/\{actionsDisplay\}/g, canComment ? "block" : "none")
+            .replace(/\{replyDisplay\}/g, canComment ? "block" : "none")
+            .replace(/\{toggleDisplay\}/g, toggleDisplay)
+            .replace(/\{replyCount\}/g, comment.replyCount || 0)
+            .replace(/\{ownerActionsDisplay\}/g, isAuthor ? "block" : "none")
+            .replace(/\{reportDisplay\}/g, (currentUserId && !isAuthor) ? "block" : "none")
+            .replace(/\{adminActionsDisplay\}/g, isAdmin ? "block" : "none")
+            .replace(/\{isBlocked\}/g, comment.IsBlocked ? "true" : "false")
+            .replace(/\{blockActionText\}/g, comment.IsBlocked ? "Unblock" : "Block")
+            .replace(/\{blockedDisplay\}/g, comment.IsBlocked ? "inline-block" : "none")
+            .replace(/\{contentOpacity\}/g, comment.IsBlocked ? "0.5" : "1");
     }
     
     function renderReplyHtml(comment, template) {
-        const createdDate = new Date(comment.createdAt).toLocaleString();
-        
-        // Only allow editing if the user is logged in (currentUserId is not empty) and owns the comment
-        const isLoggedIn = currentUserId && currentUserId.trim() !== "";
-        const isOwner = isLoggedIn && String(currentUserId) === String(comment.userId);
-        
-        // Log information for debugging
-        console.log(`Reply ${comment.id} by user ${comment.userId}, current user: ${currentUserId}, isLoggedIn: ${isLoggedIn}, isOwner: ${isOwner}`);
-        
-        // Completely hide buttons if not the owner
-        const displayStyle = isOwner ? 'flex' : 'none';
+        const isAuthor = currentUserId && String(comment.userId) === String(currentUserId);
         
         return template
-            .replace(/{id}/g, comment.id)
-            .replace(/{userId}/g, comment.userId)
-            .replace(/{content}/g, comment.content)
-            .replace(/{userName}/g, comment.userName)
-            .replace(/{userProfilePicture}/g, comment.userProfilePicture || CommentConstants.DefaultProfileImage)
-            .replace(/{createdAt}/g, createdDate)
-            .replace(/{actionsDisplay}/g, displayStyle);
+            .replace(/\{id\}/g, comment.id)
+            .replace(/\{content\}/g, comment.content)
+            .replace(/\{userName\}/g, comment.userName)
+            .replace(/\{userId\}/g, comment.userId)
+            .replace(/\{createdAt\}/g, new Date(comment.createdAt).toLocaleString())
+            .replace(/\{userProfilePicture\}/g, comment.userProfilePicture || '/images/default-profile.jpg')
+            .replace(/\{actionsDisplay\}/g, canComment ? "block" : "none")
+            .replace(/\{ownerActionsDisplay\}/g, isAuthor ? "block" : "none")
+            .replace(/\{reportDisplay\}/g, (currentUserId && !isAuthor) ? "block" : "none")
+            .replace(/\{adminActionsDisplay\}/g, isAdmin ? "block" : "none")
+            .replace(/\{isBlocked\}/g, comment.IsBlocked ? "true" : "false")
+            .replace(/\{blockActionText\}/g, comment.IsBlocked ? "Unblock" : "Block")
+            .replace(/\{blockedDisplay\}/g, comment.IsBlocked ? "inline-block" : "none")
+            .replace(/\{contentOpacity\}/g, comment.IsBlocked ? "0.5" : "1");
     }
     
     function toggleReplies(threadId, forceCollapse = false) {
@@ -385,6 +405,8 @@ window.initializeComments = function(options) {
                         appendNewComment(response);
                     }
                 }, 2000);
+                
+                showNotification("Comment posted successfully");
             },
             error: function(xhr) {
                 console.error("Error adding comment:", xhr);
@@ -397,7 +419,7 @@ window.initializeComments = function(options) {
                     errorMessage = xhr.responseJSON.message;
                 }
                 
-                alert(errorMessage);
+                showNotification(errorMessage, "danger");
             },
             complete: function() {
                 // Re-enable the button and restore its text
@@ -407,12 +429,22 @@ window.initializeComments = function(options) {
     }
     
     function appendNewComment(comment) {
+        // Skip if comment is blocked and user is not admin
+        if (comment.IsBlocked && !isAdmin) {
+            return;
+        }
+        
         // Add to cache
         commentsCache.push(comment);
         
+        // Update visible comments count (for non-admins, only count non-blocked comments)
+        const visibleComments = isAdmin 
+            ? commentsCache 
+            : commentsCache.filter(c => !c.IsBlocked);
+        
         // Update total comment count
-        const totalComments = commentsCache.length;
-        $("#totalCommentCount").text(totalComments);
+        const totalVisibleComments = visibleComments.length;
+        $("#totalCommentCount").text(totalVisibleComments);
         
         // Hide "no comments" message if shown
         $("#noComments").hide();
@@ -422,9 +454,9 @@ window.initializeComments = function(options) {
             const parentId = comment.parentCommentId;
             const parent = commentsCache.find(c => c.id === parentId);
             
-            // If the parent doesn't exist in our cache, ignore this reply
-            if (!parent) {
-                console.error("Parent comment not found for reply:", comment);
+            // If the parent doesn't exist in our cache or is blocked for non-admin user, ignore this reply
+            if (!parent || (!isAdmin && parent.IsBlocked)) {
+                console.log("Parent comment not found or blocked for reply:", comment);
                 return;
             }
             
@@ -621,31 +653,7 @@ window.initializeComments = function(options) {
                     console.log("Comment updated successfully:", response);
                     
                     // The comment will be updated via SignalR
-                    // Show success message
-                    const successAlert = $('<div>')
-                        .addClass('alert alert-success fade show')
-                        .css({
-                            'position': 'fixed',
-                            'top': '20px',
-                            'right': '20px',
-                            'z-index': 1050,
-                            'max-width': '300px'
-                        })
-                        .html(`
-                            <div class="d-flex align-items-center">
-                                <i class="bi bi-check-circle me-2"></i>
-                                Comment updated successfully
-                            </div>
-                        `);
-                    
-                    $('body').append(successAlert);
-                    
-                    // Remove the success message after 3 seconds
-                    setTimeout(() => {
-                        successAlert.fadeOut('slow', function() {
-                            $(this).remove();
-                        });
-                    }, 3000);
+                    showNotification("Comment updated successfully");
                     
                     // Clean up form
                     const commentElement = $(`#comment-${commentId}`);
@@ -671,31 +679,7 @@ window.initializeComments = function(options) {
                         errorMessage = xhr.responseJSON.message;
                     }
                     
-                    // Show error message in a toast
-                    const errorAlert = $('<div>')
-                        .addClass('alert alert-danger fade show')
-                        .css({
-                            'position': 'fixed',
-                            'top': '20px',
-                            'right': '20px',
-                            'z-index': 1050,
-                            'max-width': '300px'
-                        })
-                        .html(`
-                            <div class="d-flex align-items-center">
-                                <i class="bi bi-exclamation-circle me-2"></i>
-                                ${errorMessage}
-                            </div>
-                        `);
-                    
-                    $('body').append(errorAlert);
-                    
-                    // Remove the error message after 5 seconds
-                    setTimeout(() => {
-                        errorAlert.fadeOut('slow', function() {
-                            $(this).remove();
-                        });
-                    }, 5000);
+                    showNotification(errorMessage, "danger");
                 },
                 complete: function() {
                     // Re-enable the button and restore its text
@@ -716,6 +700,27 @@ window.initializeComments = function(options) {
         const commentElement = $(`#comment-${comment.id}`);
         if (commentElement.length > 0) {
             commentElement.find(".comment-content").text(comment.content);
+            
+            // Update blocked status indicators
+            const blockedBadge = commentElement.find(".blocked-badge");
+            const contentElement = commentElement.find(".comment-content");
+            
+            if (comment.IsBlocked) {
+                blockedBadge.show();
+                contentElement.css("opacity", "0.5");
+                commentElement.find(".block-comment-btn")
+                    .text("Unblock")
+                    .data("is-blocked", true);
+            } else {
+                blockedBadge.hide();
+                contentElement.css("opacity", "1");
+                commentElement.find(".block-comment-btn")
+                    .text("Block")
+                    .data("is-blocked", false);
+            }
+            
+            // Update the total visible comment count
+            $("#totalCommentCount").text(commentsCache.length);
         }
     }
     
@@ -737,32 +742,7 @@ window.initializeComments = function(options) {
             },
             success: function(response) {
                 // The comment will be removed via SignalR
-                // Show success message
-                const commentElement = $(`#comment-${commentId}`);
-                const successAlert = $('<div>')
-                    .addClass('alert alert-success fade show')
-                    .css({
-                        'position': 'fixed',
-                        'top': '20px',
-                        'right': '20px',
-                        'z-index': 1050,
-                        'max-width': '300px'
-                    })
-                    .html(`
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-check-circle me-2"></i>
-                            Comment deleted successfully
-                        </div>
-                    `);
-                
-                $('body').append(successAlert);
-                
-                // Remove the success message after 3 seconds
-                setTimeout(() => {
-                    successAlert.fadeOut('slow', function() {
-                        $(this).remove();
-                    });
-                }, 3000);
+                showNotification("Comment deleted successfully");
                 
                 // If SignalR fails, remove the comment after 2 seconds
                 setTimeout(() => {
@@ -779,31 +759,7 @@ window.initializeComments = function(options) {
                     errorMessage = xhr.responseJSON.message;
                 }
                 
-                // Show error message in a toast
-                const errorAlert = $('<div>')
-                    .addClass('alert alert-danger fade show')
-                    .css({
-                        'position': 'fixed',
-                        'top': '20px',
-                        'right': '20px',
-                        'z-index': 1050,
-                        'max-width': '300px'
-                    })
-                    .html(`
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-exclamation-circle me-2"></i>
-                            ${errorMessage}
-                        </div>
-                    `);
-                
-                $('body').append(errorAlert);
-                
-                // Remove the error message after 5 seconds
-                setTimeout(() => {
-                    errorAlert.fadeOut('slow', function() {
-                        $(this).remove();
-                    });
-                }, 5000);
+                showNotification(errorMessage, "danger");
             },
             complete: function() {
                 // Restore the delete button
@@ -830,21 +786,8 @@ window.initializeComments = function(options) {
         // Check if this is a parent comment
         const isParent = !removedComment.parentCommentId;
         
-        if (isParent) {
-            console.log(`Removing parent comment ID: ${commentId} and all its replies`);
-            // Find all replies to this parent comment
-            const replies = commentsCache.filter(c => c.parentCommentId === commentId);
-            console.log(`Found ${replies.length} replies to remove:`, replies);
-            
-            // Remove all replies from cache
-            commentsCache = commentsCache.filter(c => c.parentCommentId !== commentId);
-        } else {
-            console.log(`Removing reply comment ID: ${commentId}`);
-        }
-        
         // Update total comment count
-        const totalComments = commentsCache.length;
-        $("#totalCommentCount").text(totalComments);
+        $("#totalCommentCount").text(commentsCache.length);
         
         if (isParent) {
             // This is a parent comment - remove the entire thread with animation
@@ -852,7 +795,7 @@ window.initializeComments = function(options) {
             $(`#thread-${commentId}`).fadeOut('fast', function() {
                 $(this).remove();
                 
-                // Show "no comments" if no comments left
+                // Show "no comments" if no visible comments left
                 if (commentsCache.length === 0) {
                     $("#noComments").fadeIn();
                 }
@@ -866,20 +809,17 @@ window.initializeComments = function(options) {
                 // Update parent comment's reply count and UI
                 const parentId = removedComment.parentCommentId;
                 const repliesContainer = $(`#replies-${parentId}`);
-                const remainingReplies = commentsCache.filter(c => c.parentCommentId === parentId);
                 
-                console.log(`Parent ${parentId} now has ${remainingReplies.length} replies remaining`);
+                // Get all replies to this parent
+                const replies = commentsCache.filter(c => c.parentCommentId === parentId);
                 
-                if (remainingReplies.length === 0) {
+                if (replies.length === 0) {
                     // No more replies, hide the toggle button and container
-                    console.log(`No more replies for parent ${parentId}, hiding toggle button`);
                     $(`.toggle-replies[data-thread-id="${parentId}"]`).hide();
                     repliesContainer.empty();
                 } else {
                     // Update reply count
-                    console.log(`Updating reply count for parent ${parentId} to ${remainingReplies.length}`);
-                    $(`.toggle-replies[data-thread-id="${parentId}"] .reply-count`).text(remainingReplies.length);
-                    $(`#collapsed-${parentId} .reply-count`).text(remainingReplies.length);
+                    $(`.toggle-replies[data-thread-id="${parentId}"] .reply-count`).text(replies.length);
                 }
             });
         }
@@ -918,31 +858,7 @@ window.initializeComments = function(options) {
                 console.log("Reply posted successfully:", response);
                 
                 // The new reply will be added via SignalR
-                // Show success message
-                const successAlert = $('<div>')
-                    .addClass('alert alert-success fade show')
-                    .css({
-                        'position': 'fixed',
-                        'top': '20px',
-                        'right': '20px',
-                        'z-index': 1050,
-                        'max-width': '300px'
-                    })
-                    .html(`
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-check-circle me-2"></i>
-                            ${CommentConstants.SuccessMessages.ReplyPosted}
-                        </div>
-                    `);
-                
-                $('body').append(successAlert);
-                
-                // Remove the success message after 3 seconds
-                setTimeout(() => {
-                    successAlert.fadeOut('slow', function() {
-                        $(this).remove();
-                    });
-                }, 3000);
+                showNotification(CommentConstants.SuccessMessages.ReplyPosted);
                 
                 // Clean up form
                 form.closest(".reply-form").remove();
@@ -965,31 +881,7 @@ window.initializeComments = function(options) {
                     errorMessage = xhr.responseJSON.message;
                 }
                 
-                // Show error message in a toast
-                const errorAlert = $('<div>')
-                    .addClass('alert alert-danger fade show')
-                    .css({
-                        'position': 'fixed',
-                        'top': '20px',
-                        'right': '20px',
-                        'z-index': 1050,
-                        'max-width': '300px'
-                    })
-                    .html(`
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-exclamation-circle me-2"></i>
-                            ${errorMessage}
-                        </div>
-                    `);
-                
-                $('body').append(errorAlert);
-                
-                // Remove the error message after 5 seconds
-                setTimeout(() => {
-                    errorAlert.fadeOut('slow', function() {
-                        $(this).remove();
-                    });
-                }, 5000);
+                showNotification(errorMessage, "danger");
             },
             complete: function() {
                 // Re-enable the button and restore its text
@@ -1031,4 +923,191 @@ window.initializeComments = function(options) {
                 .catch(err => console.error("Error stopping connection:", err));
         }
     });
+
+    // Create report comment modal
+    function createReportModal() {
+        $("body").append(`
+            <div class="modal fade" id="reportCommentModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Report Comment</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="reportCommentForm">
+                                <input type="hidden" id="reportCommentId" />
+                                <div class="mb-3">
+                                    <label for="reportReason" class="form-label">Reason</label>
+                                    <select class="form-select" id="reportReason" required>
+                                        <option value="">Select a reason</option>
+                                        <option value="Spam">Spam</option>
+                                        <option value="Inappropriate content">Inappropriate content</option>
+                                        <option value="Harassment">Harassment</option>
+                                        <option value="False information">False information</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="reportDescription" class="form-label">Description</label>
+                                    <textarea class="form-control" id="reportDescription" rows="3" placeholder="Please provide additional details"></textarea>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" form="reportCommentForm" class="btn btn-danger">Report</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+    }
+
+    // Open report modal
+    function openReportModal(commentId) {
+        $("#reportCommentId").val(commentId);
+        $("#reportReason").val("");
+        $("#reportDescription").val("");
+        
+        const modal = new bootstrap.Modal(document.getElementById('reportCommentModal'));
+        modal.show();
+    }
+    
+    // Submit report form
+    function submitReportComment() {
+        const commentId = $("#reportCommentId").val();
+        const reason = $("#reportReason").val();
+        const description = $("#reportDescription").val();
+        
+        if (!commentId || !reason) {
+            alert("Please provide a reason for your report.");
+            return;
+        }
+        
+        // Disable submit button to prevent multiple submissions
+        const submitBtn = $("#reportCommentForm").find('button[type="submit"]');
+        const originalText = submitBtn.html();
+        submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Submitting...');
+        
+        $.ajax({
+            url: API_ENDPOINTS.COMMENTS.REPORT,
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                commentId: parseInt(commentId),
+                reason: reason,
+                description: description
+            }),
+            beforeSend: function(xhr) {
+                const token = $("input[name='__RequestVerificationToken']").val();
+                xhr.setRequestHeader("RequestVerificationToken", token);
+            },
+            success: function() {
+                // Get the modal instance and hide it
+                const modalElement = document.getElementById('reportCommentModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                modal.hide();
+                
+                // Make sure backdrop is removed
+                setTimeout(() => {
+                    // Remove modal backdrop if it still exists
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) {
+                        backdrop.remove();
+                    }
+                    // Reset body classes and styles
+                    document.body.classList.remove('modal-open');
+                    document.body.style.removeProperty('padding-right');
+                    document.body.style.removeProperty('overflow');
+                }, 300);
+                
+                showNotification("Thank you for your report. We will review it as soon as possible.");
+            },
+            error: function(error) {
+                console.error("Error reporting comment:", error.responseText || error);
+                showNotification("Failed to report comment. Please try again later.", "danger");
+            },
+            complete: function() {
+                // Re-enable the button regardless of success/failure
+                submitBtn.prop('disabled', false).html(originalText);
+            }
+        });
+    }
+    
+    // Block/unblock comment (admin only)
+    function toggleCommentBlock(commentId, shouldBlock) {
+        // Only admins can block comments
+        if (!isAdmin) {
+            console.error('Unauthorized block/unblock attempt');
+            alert('You are not authorized to block or unblock comments');
+            return;
+        }
+        
+        const actionText = shouldBlock ? "blocking" : "unblocking";
+        console.log(`${actionText} comment ID: ${commentId}`);
+        
+        // Disable the button while processing
+        const button = $(`.block-comment-btn[data-id="${commentId}"]`);
+        const originalText = button.text();
+        button.prop('disabled', true).html(`<i class="spinner-border spinner-border-sm"></i> ${shouldBlock ? 'Blocking...' : 'Unblocking...'}`);
+        
+        $.ajax({
+            url: API_ENDPOINTS.COMMENTS.BLOCK,
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                commentId: parseInt(commentId),
+                isBlocked: shouldBlock
+            }),
+            beforeSend: function(xhr) {
+                const token = $("input[name='__RequestVerificationToken']").val();
+                xhr.setRequestHeader("RequestVerificationToken", token);
+            },
+            success: function(comment) {
+                console.log(`Comment ${comment.id} ${shouldBlock ? 'blocked' : 'unblocked'} successfully`);
+                
+                // Update in cache and UI - will be handled by SignalR updates
+                // Show success message
+                const alertType = shouldBlock ? 'warning' : 'success';
+                const message = shouldBlock ? 'Comment blocked successfully' : 'Comment unblocked successfully';
+                
+                showNotification(message, alertType);
+            },
+            error: function(error) {
+                console.error(`Error ${actionText} comment:`, error);
+                alert(`Failed to ${actionText.slice(0, -3)} comment. Please try again later.`);
+                // Re-enable the button and restore text
+                button.prop('disabled', false).text(originalText);
+            }
+        });
+    }
+
+    // Helper function to show notifications
+    function showNotification(message, type = 'success') {
+        const toast = $('<div>')
+            .addClass(`alert alert-${type} fade show`)
+            .css({
+                'position': 'fixed',
+                'top': '20px',
+                'right': '20px',
+                'z-index': 1050,
+                'max-width': '300px'
+            })
+            .html(`
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'warning' ? 'shield-exclamation' : 'exclamation-circle'} me-2"></i>
+                    ${message}
+                </div>
+            `);
+        
+        $('body').append(toast);
+        
+        // Remove the toast after 3 seconds
+        setTimeout(() => {
+            toast.fadeOut('slow', function() {
+                $(this).remove();
+            });
+        }, 3000);
+    }
 }

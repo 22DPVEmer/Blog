@@ -1,0 +1,397 @@
+@model IEnumerable<Blog.Core.Models.ReportViewModel>
+@{
+    ViewData["Title"] = "Reported Comments";
+}
+
+<div class="container-fluid mt-4">
+    <h1 class="h2 mb-4">@ViewData["Title"]</h1>
+    
+    <div class="mb-4">
+        <div class="nav nav-pills">
+            <button type="button" class="nav-link active filter-btn me-2" data-filter="all">All Reports</button>
+            <button type="button" class="nav-link filter-btn me-2" data-filter="pending">Pending Reports</button>
+            <button type="button" class="nav-link filter-btn" data-filter="resolved">Resolved Reports</button>
+        </div>
+        <div class="nav nav-pills mt-2">
+            <button type="button" class="nav-link active block-filter-btn me-2" data-block-filter="all">All Comments</button>
+            <button type="button" class="nav-link block-filter-btn me-2" data-block-filter="blocked">Blocked Comments</button>
+            <button type="button" class="nav-link block-filter-btn" data-block-filter="unblocked">Unblocked Comments</button>
+        </div>
+    </div>
+    
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info no-reports-message">
+            <p class="mb-0">There are no reported comments to review.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle" id="reports-table">
+                <thead>
+                    <tr>
+                        <th>Reported By</th>
+                        <th>Reason</th>
+                        <th>Comment</th>
+                        <th>Author</th>
+                        <th>Article</th>
+                        <th>Reported At</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var report in Model)
+                    {
+                        <tr class="report-row @(report.IsResolved ? "resolved" : "pending") @(report.IsBlocked ? "blocked" : "unblocked")">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img src="@(string.IsNullOrEmpty(report.ReportedByUserProfilePicture) ? "/images/default-profile.jpg" : report.ReportedByUserProfilePicture)" 
+                                         alt="@report.ReportedByUserName" 
+                                         class="rounded-circle me-2" width="32" height="32"
+                                         onerror="this.onerror=null; this.src='/images/default-profile.jpg';">
+                                    <span>@report.ReportedByUserName</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong class="text-danger">@report.Reason</strong>
+                                    @if (!string.IsNullOrEmpty(report.Description))
+                                    {
+                                        <p class="small text-muted mb-0">@report.Description</p>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                <p class="mb-0 comment-content">@report.CommentContent</p>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img src="@(string.IsNullOrEmpty(report.CommentAuthorProfilePicture) ? "/images/default-profile.jpg" : report.CommentAuthorProfilePicture)" 
+                                         alt="@report.CommentAuthorName" 
+                                         class="rounded-circle me-2" width="32" height="32"
+                                         onerror="this.onerror=null; this.src='/images/default-profile.jpg';">
+                                    <span>@report.CommentAuthorName</span>
+                                </div>
+                            </td>
+                            <td>
+                                <a href="@Url.Action("Details", "Articles", new { id = report.ArticleId })" target="_blank" class="text-decoration-none">
+                                    @report.ArticleTitle
+                                </a>
+                            </td>
+                            <td>
+                                @report.CreatedAt.ToString("MMM dd, yyyy HH:mm")
+                            </td>
+                            <td>
+                                @if (report.IsResolved)
+                                {
+                                    <span class="badge bg-success status-resolved">Resolved</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning status-pending">Pending</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    @if (report.IsResolved)
+                                    {
+                                        if (report.IsBlocked)
+                                        {
+                                            <button type="button" class="btn btn-info btn-sm unblock-comment-btn" 
+                                                    data-id="@report.CommentId" data-action="unblock" data-is-parent="@report.IsParent">
+                                                <i class="bi bi-shield-check"></i> <span class="btn-unblock-text">Unblock</span>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-warning btn-sm block-comment-btn" 
+                                                    data-id="@report.CommentId" data-action="block" data-is-parent="@report.IsParent">
+                                                <i class="bi bi-shield-exclamation"></i> <span class="btn-block-text">Block</span>
+                                            </button>
+                                        }
+                                        
+                                        <button type="button" class="btn btn-warning btn-sm unresolve-report-btn" 
+                                                data-id="@report.Id" data-action="unresolve">
+                                            <i class="bi bi-x-lg"></i> <span class="btn-unresolve-text">Unresolve</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-warning btn-sm block-comment-btn" 
+                                                data-id="@report.CommentId" data-action="block" data-is-parent="@report.IsParent">
+                                            <i class="bi bi-shield-exclamation"></i> <span class="btn-block-text">Block</span>
+                                        </button>
+                                        <button type="button" class="btn btn-success btn-sm resolve-report-btn" 
+                                                data-id="@report.Id" data-action="resolve">
+                                            <i class="bi bi-check-lg"></i> <span class="btn-resolve-text">Resolve</span>
+                                        </button>
+                                    }
+                                    <a href="@Url.Action("Details", "Articles", new { id = report.ArticleId })" 
+                                       class="btn btn-primary btn-sm">
+                                        <i class="bi bi-eye"></i> <span class="btn-view-text">View</span>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/adminConstants.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Add antiforgery token to the page if it doesn't exist
+            if ($('input[name="__RequestVerificationToken"]').length === 0) {
+                $('body').append('@Html.AntiForgeryToken()');
+            }
+            
+            // Update all default profile image URLs
+            $('img').each(function() {
+                $(this).attr('onerror', `this.onerror=null; this.src='${AdminConstants.Reports.Images.DefaultProfile}';`);
+            });
+            
+            // Update the text elements with constants
+            $('.no-reports-message p').text(AdminConstants.Reports.ErrorMessages.NoReportsFound);
+            $('.status-resolved').text(AdminConstants.Reports.Status.Resolved);
+            $('.status-pending').text(AdminConstants.Reports.Status.Pending);
+            $('.btn-block-text').text(AdminConstants.Reports.ButtonLabels.BlockComment);
+            $('.btn-unblock-text').text(AdminConstants.Reports.ButtonLabels.UnblockComment);
+            $('.btn-resolve-text').text(AdminConstants.Reports.ButtonLabels.Resolve);
+            $('.btn-unresolve-text').text(AdminConstants.Reports.ButtonLabels.Unresolve);
+            $('.btn-view-text').text(AdminConstants.Reports.ButtonLabels.View);
+            
+            // Update filter button labels
+            $('.filter-btn[data-filter="all"]').text(AdminConstants.Reports.FilterLabels.All);
+            $('.filter-btn[data-filter="resolved"]').text(AdminConstants.Reports.FilterLabels.Resolved);
+            $('.filter-btn[data-filter="pending"]').text(AdminConstants.Reports.FilterLabels.Pending);
+            $('.block-filter-btn[data-block-filter="all"]').text(AdminConstants.Reports.FilterLabels.AllComments);
+            $('.block-filter-btn[data-block-filter="blocked"]').text(AdminConstants.Reports.FilterLabels.BlockedComments);
+            $('.block-filter-btn[data-block-filter="unblocked"]').text(AdminConstants.Reports.FilterLabels.UnblockedComments);
+            
+            // Function to show success message
+            function showSuccessMessage(message) {
+                const alert = $(`
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="bi bi-check-circle me-2"></i>
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `);
+                
+                // Remove any existing alerts
+                $('.alert').remove();
+                
+                // Add the new alert at the top of the container
+                $('.container-fluid').prepend(alert);
+                
+                // Auto dismiss after 5 seconds
+                setTimeout(() => {
+                    alert.alert('close');
+                }, 5000);
+            }
+            
+            // Track current filter states
+            let currentStatusFilter = 'all';
+            let currentBlockFilter = 'all';
+            
+            // Apply status filters (resolved/pending)
+            $('.filter-btn').on('click', function() {
+                const filter = $(this).data('filter');
+                currentStatusFilter = filter;
+                
+                $('.filter-btn').removeClass('active');
+                $(this).addClass('active');
+                
+                applyFilters();
+            });
+            
+            // Apply block status filters (blocked/unblocked)
+            $('.block-filter-btn').on('click', function() {
+                const filter = $(this).data('block-filter');
+                currentBlockFilter = filter;
+                
+                $('.block-filter-btn').removeClass('active');
+                $(this).addClass('active');
+                
+                applyFilters();
+            });
+            
+            // Apply both filters
+            function applyFilters() {
+                // Hide all rows first
+                $('.report-row').hide();
+                
+                // Determine which rows to show based on filters
+                let selector = '.report-row';
+                
+                if (currentStatusFilter !== 'all') {
+                    selector += '.' + currentStatusFilter;
+                }
+                
+                if (currentBlockFilter !== 'all') {
+                    selector += '.' + currentBlockFilter;
+                }
+                
+                // Show rows that match both filters
+                $(selector).show();
+                
+                // Check if there are visible rows
+                const visibleRows = $('.report-row:visible').length;
+                if (visibleRows === 0) {
+                    if (!$('#no-filtered-results').length) {
+                        $('#reports-table').after('<div id="no-filtered-results" class="alert alert-info mt-3">' + 
+                            AdminConstants.Reports.ErrorMessages.NoFilteredResults + '</div>');
+                    }
+                } else {
+                    $('#no-filtered-results').remove();
+                }
+            }
+            
+            // Block comment button click
+            $(".block-comment-btn").on("click", function() {
+                const commentId = $(this).data("id");
+                const isParent = $(this).data("is-parent") === true;
+                
+                let confirmMessage = AdminConstants.Reports.Confirmation.BlockComment;
+                if (isParent) {
+                    confirmMessage = AdminConstants.Reports.Confirmation.BlockCommentWithReplies;
+                }
+                
+                if (confirm(confirmMessage)) {
+                    blockComment(commentId, true);
+                }
+            });
+            
+            // Unblock comment button click
+            $(".unblock-comment-btn").on("click", function() {
+                const commentId = $(this).data("id");
+                const isParent = $(this).data("is-parent") === true;
+                
+                if (confirm(AdminConstants.Reports.Confirmation.UnblockComment)) {
+                    blockComment(commentId, false);
+                }
+            });
+            
+            // Resolve report button click
+            $(".resolve-report-btn").on("click", function() {
+                const reportId = $(this).data("id");
+                if (confirm(AdminConstants.Reports.Confirmation.ResolveReport)) {
+                    resolveReport(reportId, true);
+                }
+            });
+            
+            // Unresolve report button click
+            $(".unresolve-report-btn").on("click", function() {
+                const reportId = $(this).data("id");
+                if (confirm(AdminConstants.Reports.Confirmation.UnresolveReport)) {
+                    resolveReport(reportId, false);
+                }
+            });
+            
+            // Block/unblock comment function
+            function blockComment(commentId, isBlocked) {
+                const url = isBlocked ? 
+                    AdminConstants.Reports.Urls.BlockComment : 
+                    AdminConstants.Reports.Urls.UnblockComment;
+                    
+                $.ajax({
+                    url: url,
+                    method: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        commentId: parseInt(commentId),
+                        isBlocked: isBlocked
+                    }),
+                    beforeSend: function(xhr) {
+                        const token = $("input[name='__RequestVerificationToken']").val();
+                        xhr.setRequestHeader("RequestVerificationToken", token);
+                    },
+                    success: function() {
+                        showSuccessMessage(isBlocked ? 
+                            "Comment has been blocked successfully." : 
+                            "Comment has been unblocked successfully.");
+                        setTimeout(() => location.reload(), 1000);
+                    },
+                    error: function(error) {
+                        console.error(`Error ${isBlocked ? 'blocking' : 'unblocking'} comment:`, error);
+                        alert(isBlocked ? 
+                            AdminConstants.Reports.ErrorMessages.BlockCommentFailed : 
+                            AdminConstants.Reports.ErrorMessages.UnblockCommentFailed);
+                    }
+                });
+            }
+            
+            // Resolve/unresolve report function
+            function resolveReport(reportId, isResolved) {
+                $.ajax({
+                    url: AdminConstants.Reports.Urls.ResolveReport,
+                    method: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({
+                        reportId: parseInt(reportId),
+                        isResolved: isResolved
+                    }),
+                    beforeSend: function(xhr) {
+                        const token = $("input[name='__RequestVerificationToken']").val();
+                        xhr.setRequestHeader("RequestVerificationToken", token);
+                    },
+                    success: function() {
+                        showSuccessMessage(isResolved ? 
+                            "Report has been resolved successfully." : 
+                            "Report has been marked as unresolved.");
+                        setTimeout(() => location.reload(), 1000);
+                    },
+                    error: function(error) {
+                        console.error(`Error ${isResolved ? 'resolving' : 'unresolving'} report:`, error);
+                        alert(AdminConstants.Reports.ErrorMessages.ResolveReportFailed);
+                    }
+                });
+            }
+        });
+    </script>
+}
+
+<style>
+    .comment-content {
+        max-width: 250px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .nav-pills .nav-link {
+        color: var(--bs-body-color);
+        background-color: transparent;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .nav-pills .nav-link.active {
+        background-color: var(--bs-primary);
+        color: white;
+        border-color: var(--bs-primary);
+    }
+    
+    .table > :not(caption) > * > * {
+        padding: 1rem 0.75rem;
+    }
+    
+    .btn-group .btn {
+        border-radius: 4px !important;
+        margin: 0 2px;
+    }
+    
+    .alert {
+        margin-bottom: 1.5rem;
+    }
+    
+    .badge {
+        font-size: 0.85em;
+        padding: 0.5em 0.85em;
+    }
+</style> 
