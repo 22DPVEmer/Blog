@@ -14,6 +14,7 @@ namespace Blog.Core.Constants
             public const string NoPermissionToRankArticles = "You don't have permission to rank articles.";
             public const string ArticleVoteError = "An error occurred while voting for the article.";
             public const string ArticleDeleteError = "An error occurred while deleting the article.";
+            public const string CannotReportOwnComment = "You cannot report your own comments.";
         }
         public static class Messages
         {
@@ -48,6 +49,7 @@ namespace Blog.Core.Constants
             public const string SignalRNotificationSentForDeletion = "SignalR notification sent for comment deletion {CommentId}";
             public const string SignalRNotificationError = "Error sending SignalR notification for {0}";
             public const string SignalRNotificationSentForUpdate = "SignalR notification sent for updated comment";
+            public const string RepliesUpdated = "Notifying about {ReplyCount} updated replies to comment {CommentId}";
         }
         
         public static class EventNames
@@ -116,6 +118,8 @@ namespace Blog.Core.Constants
             public const string ArticleId = "{id}";
             public const string DefaultErrorAction = "Error";
             public const string DefaultHomeController = "Home";
+            public const string Report = "Report";
+            public const string Block = "Block";
         }
 
         public static class SignalRNotificationTypes

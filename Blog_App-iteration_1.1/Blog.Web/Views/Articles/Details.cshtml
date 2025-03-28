@@ -128,6 +128,11 @@
             color: white;
         }
     </style>
+    
+    <!-- Set flag to prevent double initialization of comments -->
+    <script>
+        window.commentsInitializedByParent = true;
+    </script>
 }
 @section Scripts {
     <!-- jQuery first -->
@@ -197,11 +202,12 @@
                 var currentUserId = currentUser?.Id ?? string.Empty;
                 var canComment = currentUser != null && (currentUser.CanCommentArticles || currentUser.IsAdmin);
                 var profilePicture = currentUser?.ProfilePicture ?? "/images/default-profile.jpg";
+                var isAdmin = currentUser != null && currentUser.IsAdmin;
                 // Ensure article ID is a number
                 var articleId = ViewBag.ArticleId;
             }
             
-            console.log("Initializing comments with article ID: @articleId");
+            console.log("Parent view initializing comments with article ID: @articleId");
             
             // Check if function is defined before calling
             if (typeof initializeComments === 'function') {
@@ -209,7 +215,8 @@
                     currentUserId: '@(currentUserId)',
                     canComment: @Json.Serialize(canComment),
                     articleId: @articleId, // Pass as a number, not a string
-                    currentUserProfilePicture: '@(profilePicture)'
+                    currentUserProfilePicture: '@(profilePicture)',
+                    isAdmin: @Json.Serialize(isAdmin) // Pass admin status
                 });
             } else {
                 console.error("initializeComments function is not defined. Check if comments.js is loaded correctly.");

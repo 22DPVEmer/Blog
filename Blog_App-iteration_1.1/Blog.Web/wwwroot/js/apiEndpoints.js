@@ -5,6 +5,14 @@ const API_ENDPOINTS = {
     },
     ARTICLE_VOTES: {
         VOTE: '/api/articlevotes/vote'
+    },
+    COMMENTS: {
+        GET_ARTICLE_COMMENTS: '/Comments/Article/',
+        CREATE: '/Comments',
+        UPDATE: '/Comments/',  // Append comment ID
+        DELETE: '/Comments/',  // Append comment ID
+        REPORT: '/Comments/Report',
+        BLOCK: '/Comments/Block'
     }
 };
 

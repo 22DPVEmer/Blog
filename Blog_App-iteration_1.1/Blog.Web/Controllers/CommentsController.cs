@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.SignalR;
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using Blog.Web.Models;
 
 namespace Blog.Web.Controllers
 {
@@ -222,6 +223,97 @@ namespace Blog.Web.Controllers
                 _logger.LogError(ex, CommentConstants.LogMessages.ErrorDeletingComment, id);
                 return StatusCode(CommentConstants.HttpStatusCodes.InternalServerError, new { message = CommentConstants.ErrorMessages.CommentDeleteError });
             }
+        }
+
+        // Report and Block endpoints
+        [HttpPost(CommentConstants.ApiRoutes.Report)]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ReportComment([FromBody] Models.CommentReportViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+            
+            var comment = await _commentService.GetCommentByIdAsync(model.CommentId);
+            if (comment == null)
+            {
+                return NotFound();
+            }
+            
+            // Don't allow users to report their own comments
+            if (comment.UserId == user.Id)
+            {
+                return BadRequest(CommentConstants.ErrorMessages.CannotReportOwnComment);
+            }
+            
+            await _commentService.ReportCommentAsync(model.CommentId, user.Id, model.Reason, model.Description);
+            
+            return Ok();
+        }
+        
+        // POST: api/Comments/Block
+        [HttpPost(CommentConstants.ApiRoutes.Block)]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult<CommentViewModel>> BlockComment([FromBody] Models.CommentBlockViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null || !user.IsAdmin)
+            {
+                return Forbid();
+            }
+            
+            var comment = await _commentService.GetCommentByIdAsync(model.CommentId);
+            if (comment == null)
+            {
+                return NotFound();
+            }
+            
+            // Set the block status of the comment and all its replies
+            var updatedComment = await _commentService.SetCommentBlockStatusAsync(model.CommentId, model.IsBlocked);
+            
+            // Get article ID for SignalR notifications
+            int articleId = updatedComment.ArticleId;
+            string groupName = string.Format(CommentConstants.HubConstants.ArticleGroupNameFormat, articleId);
+            
+            // Notify about the main comment update
+            await _commentHubContext.Clients.Group(groupName)
+                .SendAsync(CommentConstants.EventNames.UpdateComment, updatedComment);
+            
+            // If this is a parent comment, also get and notify about all replies
+            if (updatedComment.ParentCommentId == null)
+            {
+                // Get all replies to this comment
+                var allComments = await _commentService.GetArticleCommentsAsync(articleId);
+                var replies = allComments.Where(c => c.ParentCommentId == updatedComment.Id).ToList();
+                
+                _logger.LogInformation(CommentConstants.LogMessages.RepliesUpdated, replies.Count, updatedComment.Id);
+                
+                // Notify about each reply update
+                foreach (var reply in replies)
+                {
+                    // Ensure reply has same blocked status as parent
+                    reply.IsBlocked = updatedComment.IsBlocked;
+                    
+                    await _commentHubContext.Clients.Group(groupName)
+                        .SendAsync(CommentConstants.EventNames.UpdateComment, reply);
+                }
+            }
+            
+            return Ok(updatedComment);
         }
     }
 }

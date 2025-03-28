@@ -5,6 +5,7 @@
 @{
     var currentUser = await UserManager.GetUserAsync(User);
     var canComment = currentUser != null && (currentUser.CanCommentArticles || currentUser.IsAdmin);
+    var isAdmin = currentUser?.IsAdmin ?? false;
     var profilePicture = currentUser?.ProfilePicture ?? "/images/default-profile.jpg";
     // Properly encode the profile picture URL for JavaScript
     var encodedProfilePicture = Html.Raw(Json.Serialize(profilePicture));
@@ -313,6 +314,7 @@
                             <div class="meta-left">
                                 <strong>{userName}</strong>
                                 <span class="text-muted">{createdAt}</span>
+                                <span class="badge bg-danger blocked-badge" style="display: {blockedDisplay};">Blocked</span>
                             </div>
                             @if (User.Identity.IsAuthenticated && canComment)
                             {
@@ -321,17 +323,23 @@
                                         <i class="bi bi-three-dots-vertical"></i>
                                     </button>
                                     <div class="kebab-menu-content">
-                                        <button class="edit-comment-btn" data-id="{id}">
+                                        <button class="edit-comment-btn" data-id="{id}" style="display: {ownerActionsDisplay}">
                                             <i class="bi bi-pencil"></i> Edit
                                         </button>
-                                        <button class="delete-comment-btn" data-id="{id}">
+                                        <button class="delete-comment-btn" data-id="{id}" style="display: {ownerActionsDisplay}">
                                             <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                        <button class="report-comment-btn" data-id="{id}" style="display: {reportDisplay}">
+                                            <i class="bi bi-flag"></i> Report
+                                        </button>
+                                        <button class="block-comment-btn" data-id="{id}" data-is-blocked="{isBlocked}" style="display: {adminActionsDisplay}">
+                                            <i class="bi bi-shield-exclamation"></i> {blockActionText}
                                         </button>
                                     </div>
                                 </div>
                             }
                         </div>
-                        <p class="comment-content mb-1">{content}</p>
+                        <p class="comment-content mb-1" style="opacity: {contentOpacity};">{content}</p>
                         <div class="reply-action mt-1" style="display: {replyDisplay};">
                             <button class="btn btn-sm text-muted reply-comment-btn" data-id="{id}">
                                 <i class="bi bi-reply"></i> Reply
@@ -367,6 +375,7 @@
                         <div class="meta-left">
                             <strong>{userName}</strong>
                             <span class="text-muted">{createdAt}</span>
+                            <span class="badge bg-danger blocked-badge" style="display: {blockedDisplay};">Blocked</span>
                         </div>
                         @if (User.Identity.IsAuthenticated && canComment)
                         {
@@ -375,17 +384,23 @@
                                     <i class="bi bi-three-dots-vertical"></i>
                                 </button>
                                 <div class="kebab-menu-content">
-                                    <button class="edit-comment-btn" data-id="{id}">
+                                    <button class="edit-comment-btn" data-id="{id}" style="display: {ownerActionsDisplay}">
                                         <i class="bi bi-pencil"></i> Edit
                                     </button>
-                                    <button class="delete-comment-btn" data-id="{id}">
+                                    <button class="delete-comment-btn" data-id="{id}" style="display: {ownerActionsDisplay}">
                                         <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                    <button class="report-comment-btn" data-id="{id}" style="display: {reportDisplay}">
+                                        <i class="bi bi-flag"></i> Report
+                                    </button>
+                                    <button class="block-comment-btn" data-id="{id}" data-is-blocked="{isBlocked}" style="display: {adminActionsDisplay}">
+                                        <i class="bi bi-shield-exclamation"></i> {blockActionText}
                                     </button>
                                 </div>
                             </div>
                         }
                     </div>
-                    <p class="comment-content mb-1">{content}</p>
+                    <p class="comment-content mb-1" style="opacity: {contentOpacity};">{content}</p>
                 </div>
             </div>
         </div>
@@ -413,5 +428,43 @@
         });
         // Toggle this menu
         menu.classList.toggle('show');
+    }
+
+    // Initialize only if not already initialized or being initialized by parent view
+    // This prevents double initialization when included in Details.cshtml
+    if (!window.commentsInitializedByParent) {
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("Comments partial initializing comments system");
+            // Include API Endpoints if not already included
+            if (typeof API_ENDPOINTS === 'undefined') {
+                loadScript('/js/apiEndpoints.js', function() {
+                    loadCommentsScript();
+                });
+            } else {
+                loadCommentsScript();
+            }
+        });
+    } else {
+        console.log("Comments will be initialized by parent view");
+    }
+    
+    function loadScript(url, callback) {
+        const script = document.createElement('script');
+        script.src = url;
+        script.onload = callback;
+        document.head.appendChild(script);
+    }
+    
+    function loadCommentsScript() {
+        loadScript('/js/comments.js', function() {
+            // Initialize with the current user details
+            window.initializeComments({
+                currentUserId: '@(currentUser?.Id ?? "")',
+                canComment: @Json.Serialize(canComment),
+                articleId: @ViewBag.ArticleId,
+                currentUserProfilePicture: @encodedProfilePicture,
+                isAdmin: @Json.Serialize(isAdmin) // Pass isAdmin flag to the comments system
+            });
+        });
     }
 </script> 
