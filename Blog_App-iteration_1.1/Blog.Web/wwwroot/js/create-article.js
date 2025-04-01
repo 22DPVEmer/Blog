@@ -1,12 +1,18 @@
 // Add total size tracking
 import { Constants } from "./constants.js";
 
-let totalSize = 0;
+let featuredImageSize = 0; // For featured image only
+let contentImagesSize = 0; // Track content images size separately
+let contentImageMap = new Map(); // Track each content image by URL and size
 const MAX_TOTAL_SIZE = Constants.LIMITS.MAX_TOTAL_SIZE;
+const MAX_CONTENT_IMAGES_SIZE = Constants.LIMITS.MAX_CONTENT_IMAGES_SIZE;
+let contentSizeExceeded = false;
+let contentEmpty = false; // Set default to false to not block initial render
 
+// Update featured image size display
 function updateSizeDisplay() {
-  const sizeMB = (totalSize / 1024 / 1024).toFixed(2);
-  const percentage = ((totalSize / MAX_TOTAL_SIZE) * 100).toFixed(1);
+  const sizeMB = (featuredImageSize / 1024 / 1024).toFixed(2);
+  const percentage = ((featuredImageSize / MAX_TOTAL_SIZE) * 100).toFixed(1);
 
   document.getElementById("currentSize").textContent = sizeMB;
   const progressBar = document.getElementById("sizeProgress");
@@ -24,6 +30,49 @@ function updateSizeDisplay() {
   } else {
     progressBar.classList.remove("bg-warning", "bg-danger");
     progressBar.classList.add("bg-success");
+  }
+  
+  updateSubmitButtonState();
+}
+
+// Check content image size and update validation state
+function updateContentImageSizeStatus() {
+  // Calculate total content image size
+  let totalContentSize = 0;
+  contentImageMap.forEach((size) => {
+    totalContentSize += size;
+  });
+  
+  contentImagesSize = totalContentSize;
+  
+  // Update exceeded flag
+  if (contentImagesSize > MAX_CONTENT_IMAGES_SIZE) {
+    contentSizeExceeded = true;
+    showError(Constants.MESSAGES.CONTENT_IMAGES_LIMIT_EXCEEDED);
+  } else {
+    contentSizeExceeded = false;
+  }
+  
+  // Debug info
+  console.log(`Content images total size: ${(contentImagesSize / 1024 / 1024).toFixed(2)}MB`);
+  console.log(`Number of tracked images: ${contentImageMap.size}`);
+  
+  updateSubmitButtonState();
+}
+
+// Function to update submit button state
+function updateSubmitButtonState() {
+  const submitButton = document.getElementById("submitButton");
+  
+  if (contentSizeExceeded) { // Removed contentEmpty check
+    submitButton.disabled = true;
+    if (contentSizeExceeded) {
+      showError(Constants.MESSAGES.CONTENT_IMAGES_LIMIT_EXCEEDED);
+    }
+    submitButton.classList.add("disabled");
+  } else {
+    submitButton.disabled = false;
+    submitButton.classList.remove("disabled");
   }
 }
 
@@ -73,11 +122,6 @@ fileInput.addEventListener("change", function (e) {
 function handleFile(file) {
   if (!file) return;
 
-  if (totalSize + file.size > MAX_TOTAL_SIZE) {
-    showError(Constants.MESSAGES.SIZE_LIMIT_EXCEEDED);
-    return;
-  }
-
   if (file.size > Constants.LIMITS.MAX_IMAGE_SIZE) {
     showError(Constants.MESSAGES.IMAGE_SIZE_LIMIT);
     return;
@@ -88,8 +132,8 @@ function handleFile(file) {
     return;
   }
 
-  // Update total size and preview
-  totalSize += file.size;
+  // Update featured image size only
+  featuredImageSize = file.size;
   updateSizeDisplay();
 
   const reader = new FileReader();
@@ -154,9 +198,17 @@ tinymce.init({
   images_upload_handler: async function (blobInfo, progress) {
     return new Promise((resolve, reject) => {
       const file = blobInfo.blob();
-
-      if (totalSize + file.size > MAX_TOTAL_SIZE) {
-        reject(Constants.MESSAGES.SIZE_LIMIT_EXCEEDED);
+      
+      // Generate a temporary ID for this upload
+      const tempId = "temp_" + Date.now();
+      
+      // Check if adding this image would exceed the limit
+      const potentialTotalSize = contentImagesSize + file.size;
+      if (potentialTotalSize > MAX_CONTENT_IMAGES_SIZE) {
+        contentSizeExceeded = true;
+        updateSubmitButtonState();
+        showError(Constants.MESSAGES.CONTENT_IMAGES_LIMIT_EXCEEDED);
+        reject(Constants.MESSAGES.CONTENT_IMAGES_LIMIT_EXCEEDED);
         return;
       }
 
@@ -183,30 +235,25 @@ tinymce.init({
 
       xhr.upload.onprogress = (e) => {
         const percent = (e.loaded / e.total * 100).toFixed(1);
-        const loadingImg = editor.dom.get(loadingId);
-        if (loadingImg) {
-          loadingImg.style.setProperty('--progress-width', `${percent}%`);
-          editor.dom.setAttrib(loadingImg, 'data-progress', `${percent}%`);
-        }
+        progress(percent);
       };
       
       xhr.onerror = function() {
-        const img = editor.dom.get(loadingId);
-        if (img) {
-          editor.dom.remove(img);
-        }
-        editor.notificationManager.open({
-          text: 'Image upload failed due to a network error.',
-          type: 'error'
-        });
+        reject('Image upload failed due to a network error.');
       };
 
       xhr.onload = function () {
         if (xhr.status === 200) {
           const response = JSON.parse(xhr.responseText);
-          totalSize = response.currentSize;
-          updateSizeDisplay();
-          resolve(response.imageUrl);
+          const imageUrl = response.imageUrl;
+          
+          // Add this image to our tracking map with its size
+          contentImageMap.set(imageUrl, file.size);
+          
+          // Update content image size tracking
+          updateContentImageSizeStatus();
+          
+          resolve(imageUrl);
         } else {
           try {
             const response = JSON.parse(xhr.responseText);
@@ -217,10 +264,6 @@ tinymce.init({
         }
       };
 
-      xhr.onerror = function () {
-        reject("Image upload failed due to a network error.");
-      };
-
       xhr.send(formData);
     });
   },
@@ -228,8 +271,18 @@ tinymce.init({
   automatic_uploads: true,
   images_reuse_filename: false,
   setup: function (editor) {
+    editor.on("init", function() {
+      // Register a post processor to track and count images after init
+      if (editor.getContent()) {
+        scanContentForImages(editor);
+      }
+    });
+    
     editor.on("change", function () {
       editor.save();
+      
+      // Update tracking but don't block the editor
+      scanContentForImages(editor);
     });
 
     editor.on("paste", function (e) {
@@ -237,241 +290,151 @@ tinymce.init({
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf("image") !== -1) {
           const file = items[i].getAsFile();
-
-          if (totalSize + file.size > MAX_TOTAL_SIZE) {
+          
+          // Check if adding this image would exceed the content image limit
+          const potentialTotalSize = contentImagesSize + file.size;
+          if (potentialTotalSize > MAX_CONTENT_IMAGES_SIZE) {
+            contentSizeExceeded = true;
+            updateSubmitButtonState();
             editor.notificationManager.open({
-              text: `Adding this image would exceed the total size limit of 10MB (Current: ${(
-                totalSize /
-                1024 /
-                1024
-              ).toFixed(2)}MB)`,
+              text: Constants.MESSAGES.CONTENT_IMAGES_LIMIT_EXCEEDED,
               type: "error",
             });
+            showError(Constants.MESSAGES.CONTENT_IMAGES_LIMIT_EXCEEDED);
+            e.preventDefault();
             return;
           }
-
-          const maxSize = 5 * 1024 * 1024;
-          if (file.size > maxSize) {
+          
+          if (file.size > Constants.LIMITS.MAX_IMAGE_SIZE) {
             editor.notificationManager.open({
-              text: "Pasted image size must not exceed 5MB",
+              text: Constants.MESSAGES.IMAGE_SIZE_LIMIT,
               type: "error",
             });
+            e.preventDefault();
             return;
           }
-
-          const allowedTypes = [
-            "image/jpeg",
-            "image/png",
-            "image/gif",
-            "image/webp",
-          ];
-          if (!allowedTypes.includes(file.type)) {
-            editor.notificationManager.open({
-              text: "Only JPG, PNG, GIF, and WEBP images are allowed",
-              type: "error",
-            });
-            return;
-          }
-
-          const loadingId = "loading-" + Date.now();
-          editor.insertContent(`
-              <img id="${loadingId}" 
-                   src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
-                   class="loading-placeholder"
-                   style="position: relative;"
-                   data-progress="0%"
-              />
-              <style>
-                  .loading-placeholder {
-                      min-height: 100px;
-                      background: #f8f9fa;
-                      border: 2px dashed #dee2e6;
-                      position: relative;
-                  }
-                  .loading-placeholder::after {
-                      content: attr(data-progress);
-                      position: absolute;
-                      top: 50%;
-                      left: 50%;
-                      transform: translate(-50%, -50%);
-                      font-size: 14px;
-                      color: #6c757d;
-                  }
-                  .loading-placeholder::before {
-                      content: '';
-                      position: absolute;
-                      top: 0;
-                      left: 0;
-                      height: 100%;
-                      background: rgba(0, 123, 255, 0.1);
-                      transition: width 0.3s ease;
-                      width: var(--progress-width, 0%);
-                  }
-              </style>
-          `);
-
-          const formData = new FormData();
-          formData.append("file", file);
-
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", "/Articles/UploadImage");
-
-          const token = document.querySelector(
-            'input[name="__RequestVerificationToken"]'
-          ).value;
-          xhr.setRequestHeader("RequestVerificationToken", token);
-
-          xhr.upload.onprogress = (e) => {
-            const percent = ((e.loaded / e.total) * 100).toFixed(1);
-            const loadingImg = editor.dom.get(loadingId);
-            if (loadingImg) {
-              editor.dom.setAttrib(loadingImg, "data-progress", `${percent}%`);
-            }
-          };
-
-          xhr.onload = function () {
-            if (xhr.status === 200) {
-              const response = JSON.parse(xhr.responseText);
-              totalSize = response.currentSize;
-              updateSizeDisplay();
-
-              const img = editor.dom.get(loadingId);
-              if (img) {
-                editor.dom.setAttrib(img, "src", response.imageUrl);
-                editor.dom.setAttrib(img, "class", "img-fluid");
-                editor.dom.setAttrib(img, "id", "");
-              }
-            } else {
-              try {
-                const response = JSON.parse(xhr.responseText);
-                throw new Error(
-                  response.message || "HTTP Error: " + xhr.status
-                );
-              } catch (error) {
-                throw new Error("HTTP Error: " + xhr.status);
-              }
-            }
-          };
-
-          xhr.onerror = function () {
-            throw new Error("Image upload failed due to a network error.");
-          };
-
-          xhr.send(formData);
+          
+          // Will be tracked in the upload handler
         }
       }
+    });
+    
+    // Track when images are removed
+    editor.on("SetContent", function() {
+      // After content is set, scan for images
+      scanContentForImages(editor);
+    });
+    
+    // This catches both adding and removing content including images
+    editor.on("NodeChange", function(e) {
+      // Slight delay to ensure the DOM has updated
+      setTimeout(() => {
+        scanContentForImages(editor);
+      }, 100);
     });
   },
 });
 
-// Form submission
-const formElement =
-  document.getElementById("createArticleForm") ||
-  document.getElementById("editArticleForm");
-// In the DOMContentLoaded event handler
-document.addEventListener("DOMContentLoaded", function () {
-  const isEditMode = window.isEditMode || false;
-
-  if (isEditMode && window.initialFeaturedImage) {
-    // Remove the fetch call and set default size
-    imagePreview.style.display = "block";
-    dragDropZone.style.display = "none";
-    document.querySelector(".image-actions").style.display = "flex";
-    totalSize = 1024 * 1024; // Set default 1MB for existing images
-    updateSizeDisplay();
-  }
-});
-
-// In the form submission handler
-if (formElement) {
-  formElement.addEventListener("submit", async function (e) {
-    e.preventDefault();
-
-    const submitButton = document.getElementById("submitButton");
-    const errorDiv = document.getElementById("errorMessages");
-    const successDiv = document.getElementById("successMessage");
-    const editor = tinymce.get("Content");
-    const featuredImageFile = document.getElementById("FeaturedImage").files[0];
-
-    try {
-      submitButton.disabled = true;
-      errorDiv.style.display = "none";
-      successDiv.style.display = "none";
-
-      const formData = new FormData(formElement);
-      formData.set("Content", editor.getContent());
-
-      if (featuredImageFile) {
-        formData.set("FeaturedImageFile", featuredImageFile);
-      }
-
-      const token = document.querySelector(
-        'input[name="__RequestVerificationToken"]'
-      ).value;
-      const articleId = document.getElementById("articleId")?.value; // Add a hidden input for article ID in your form
-      const endpoint = window.isEditMode
-        ? `/Articles/Edit/${articleId}`
-        : "/Articles/Create";
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          RequestVerificationToken: token,
-          Accept: "application/json",
-        },
-        body: formData,
-      });
-
-      if (response.ok) {
-        successDiv.textContent = window.isEditMode
-          ? "Article updated successfully!"
-          : "Article created successfully!";
-        successDiv.style.display = "block";
-        setTimeout(() => {
-          window.location.href = "/Articles";
-        }, 1000);
-      } else {
-        let errorMessage = "An error occurred while processing the article.";
-        try {
-          // Check if response is JSON before parsing
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            const responseData = await response.json();
-            if (response.status === 400 && responseData.errors) {
-              errorMessage = "Validation errors:";
-              Object.keys(responseData.errors).forEach((key) => {
-                errorMessage += `\n${key}: ${responseData.errors[key].join(
-                  ", "
-                )}`;
-              });
-            } else if (responseData.message) {
-              errorMessage = responseData.message;
-            }
-          } else {
-            errorMessage = await response.text();
-          }
-        } catch (jsonError) {
-          console.warn("Failed to parse error response:", jsonError);
+// Scan the editor content for images and update tracking
+function scanContentForImages(editor) {
+  // Get all images in the editor
+  const images = editor.dom.select('img');
+  
+  // Create a set of current image URLs
+  const currentImageUrls = new Set();
+  
+  // Add to the set any images found now
+  images.forEach(img => {
+    const src = img.getAttribute('src');
+    if (src) {
+      currentImageUrls.add(src);
+      
+      // If we don't have this image's size yet, estimate it
+      if (!contentImageMap.has(src) && src.startsWith('data:image')) {
+        // For data URLs, estimate size based on length
+        const estimatedSize = Math.ceil(src.length * 0.75); // Base64 is ~33% larger than binary
+        contentImageMap.set(src, estimatedSize);
+        console.log(`Estimated size for data URL image: ${Math.round(estimatedSize/1024)}KB`);
+      } else if (!contentImageMap.has(src)) {
+        // For URLs we don't know yet, set a default size and try to fetch it
+        contentImageMap.set(src, 1024 * 200); // Default 200KB for unknown images
+        
+        // Try to fetch the image to get its actual size
+        if (src.startsWith('http')) {
+          fetch(src, { method: 'HEAD' })
+            .then(response => {
+              if (response.ok) {
+                const size = parseInt(response.headers.get('content-length') || '0');
+                if (size > 0) {
+                  contentImageMap.set(src, size);
+                  updateContentImageSizeStatus();
+                }
+              }
+            })
+            .catch(err => console.warn('Could not get image size', err));
         }
-        errorDiv.textContent = errorMessage;
-        errorDiv.style.display = "block";
       }
-    } catch (error) {
-      console.error("Error processing article:", error);
-      errorDiv.textContent = "An unexpected error occurred. Please try again.";
-      errorDiv.style.display = "block";
-    } finally {
-      submitButton.disabled = false;
     }
   });
+  
+  // Remove images from our map that are no longer in the editor
+  const imagesToRemove = [];
+  contentImageMap.forEach((size, url) => {
+    if (!currentImageUrls.has(url)) {
+      imagesToRemove.push(url);
+    }
+  });
+  
+  imagesToRemove.forEach(url => {
+    contentImageMap.delete(url);
+  });
+  
+  // Update content image size status
+  updateContentImageSizeStatus();
 }
+
+// Form submission
+document.getElementById("createArticleForm").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  
+  // Check for any content image size issues before submission
+  updateContentImageSizeStatus();
+  
+  // Reset validation state
+  resetValidationState();
+  
+  // Validate Content specifically
+  const contentEditor = tinymce.get("Content");
+  
+  // Check for empty content on submission but don't block editor initialization
+  if (!contentEditor || !contentEditor.getContent().trim()) {
+    showError(Constants.MESSAGES.CONTENT_REQUIRED);
+    return;
+  }
+  
+  // Double-check content images size before submission
+  if (contentSizeExceeded) {
+    showError(Constants.MESSAGES.CONTENT_IMAGES_LIMIT_EXCEEDED);
+    return;
+  }
+  
+  // Continue with form submission if validation passes
+  submitForm();
+});
 
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", function () {
-  const isEditMode = window.isEditMode || false;
+  // Initialize content validation on load
+  setTimeout(() => {
+    const contentEditor = tinymce.get("Content");
+    if (contentEditor) {
+      // Just scan for images without checking content empty status
+      scanContentForImages(contentEditor);
+    }
+  }, 1000); // Small delay to ensure TinyMCE is fully loaded
 
   // If in edit mode and there's an initial image, update the size tracking
-  if (isEditMode && window.initialFeaturedImage) {
+  if (window.isEditMode && window.initialFeaturedImage) {
     // Show the image preview and actions
     imagePreview.style.display = "block";
     dragDropZone.style.display = "none";
@@ -485,19 +448,19 @@ document.addEventListener("DOMContentLoaded", function () {
             const size = parseInt(
               response.headers.get("content-length") || "0"
             );
-            totalSize = size;
+            featuredImageSize = size;
             updateSizeDisplay();
           }
         })
         .catch((error) => {
           console.warn("Could not fetch image size:", error);
           // Set a default size for local images
-          totalSize = 1024 * 1024; // 1MB default
+          featuredImageSize = 1024 * 1024; // 1MB default
           updateSizeDisplay();
         });
     } else {
       // For local images, set a default size
-      totalSize = 1024 * 1024; // 1MB default
+      featuredImageSize = 1024 * 1024; // 1MB default
       updateSizeDisplay();
     }
   }
@@ -511,7 +474,7 @@ document.addEventListener("DOMContentLoaded", function () {
       document.querySelector(".image-actions").style.display = "none";
       document.getElementById("FeaturedImage").value = "";
       imagePreview.src = "#";
-      totalSize = 0;
+      featuredImageSize = 0; // Reset featured image size
       updateSizeDisplay();
     });
 
@@ -524,3 +487,112 @@ document.addEventListener("DOMContentLoaded", function () {
       document.querySelector(".image-actions").style.display = "none";
     });
 });
+
+// Reset validation state for all inputs
+function resetValidationState() {
+  const form = document.getElementById("createArticleForm");
+  const inputs = form.querySelectorAll("input, textarea");
+  
+  inputs.forEach(input => {
+    input.classList.remove("is-invalid");
+    const feedback = input.nextElementSibling;
+    if (feedback && feedback.classList.contains("invalid-feedback")) {
+      feedback.textContent = "";
+    }
+  });
+}
+
+// Submit the form data
+async function submitForm() {
+  const form = document.getElementById("createArticleForm");
+  const formData = new FormData(form);
+  
+  // Add the content from TinyMCE
+  const contentEditor = tinymce.get("Content");
+  formData.set("Content", contentEditor.getContent());
+  
+  const submitButton = document.getElementById("submitButton");
+  const errorDiv = document.getElementById("errorMessages");
+  const successDiv = document.getElementById("successMessage");
+  const featuredImageFile = document.getElementById("FeaturedImage").files[0];
+  
+  try {
+    submitButton.disabled = true;
+    errorDiv.style.display = "none";
+    successDiv.style.display = "none";
+    
+    // Handle featured image if present
+    if (featuredImageFile) {
+      formData.set("FeaturedImageFile", featuredImageFile);
+    }
+    
+    // Get article ID if in edit mode
+    const articleId = document.getElementById("articleId")?.value;
+    const endpoint = window.isEditMode
+      ? `/Articles/Edit/${articleId}`
+      : "/Articles/Create";
+    
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "RequestVerificationToken": document.querySelector('input[name="__RequestVerificationToken"]').value,
+        "Accept": "application/json"
+      },
+      body: formData
+    });
+    
+    if (response.ok) {
+      // Show success message
+      successDiv.textContent = window.isEditMode
+        ? Constants.MESSAGES.ARTICLE_UPDATED
+        : Constants.MESSAGES.ARTICLE_CREATED;
+      successDiv.style.display = "block";
+      
+      // Redirect to the articles list after a delay
+      setTimeout(() => {
+        window.location.href = "/Articles";
+      }, 1500);
+    } else {
+      let errorMessage = Constants.MESSAGES.PROCESS_ERROR;
+      
+      try {
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const responseData = await response.json();
+          if (response.status === 400 && responseData.errors) {
+            // Show validation errors
+            for (const field in responseData.errors) {
+              const inputField = document.getElementById(field);
+              if (inputField) {
+                inputField.classList.add("is-invalid");
+                const feedback = inputField.nextElementSibling;
+                if (feedback && feedback.classList.contains("invalid-feedback")) {
+                  feedback.textContent = responseData.errors[field][0];
+                }
+              }
+            }
+            
+            errorMessage = Constants.MESSAGES.VALIDATION_ERROR;
+          } else if (responseData.message) {
+            errorMessage = responseData.message;
+          }
+        } else {
+          errorMessage = await response.text();
+        }
+      } catch (jsonError) {
+        console.warn("Failed to parse error response:", jsonError);
+      }
+      
+      errorDiv.textContent = errorMessage;
+      errorDiv.style.display = "block";
+    }
+  } catch (error) {
+    console.error("Error processing article:", error);
+    errorDiv.textContent = Constants.MESSAGES.UNEXPECTED_ERROR;
+    errorDiv.style.display = "block";
+  } finally {
+    submitButton.disabled = false;
+    updateSubmitButtonState();
+  }
+}

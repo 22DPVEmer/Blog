@@ -14,12 +14,7 @@
                 <div class="d-flex justify-content-between">
                     <h5 class="card-title">@Model.Title</h5>
                     <div class="article-votes">
-                        <span class="badge rounded-pill bg-success">
-                            <i class="bi bi-hand-thumbs-up"></i> @Model.UpvoteCount
-                        </span>
-                        <span class="badge rounded-pill bg-danger">
-                            <i class="bi bi-hand-thumbs-down"></i> @Model.DownvoteCount
-                        </span>
+    
                         <span class="badge rounded-pill @(Model.Score > 0 ? "bg-success" : (Model.Score < 0 ? "bg-danger" : "bg-secondary"))">
                             Score: @Model.Score
                         </span>

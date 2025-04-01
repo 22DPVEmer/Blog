@@ -1,0 +1,19 @@
+@page
+@model RegisterConfirmationModel
+@{
+    ViewData["Title"] = "Register confirmation";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<partial name="_StatusMessage" model="Model.StatusMessage" />
+
+<p>
+    We have sent an email confirmation link to your email address: <strong>@Model.Email</strong>.
+</p>
+<p>
+    Please check your email (including spam folder) and click the confirmation link to activate your account.
+</p>
+<p>
+    Once your email is confirmed, you will be able to <a asp-page="./Login">log in</a> with your credentials.
+</p> 

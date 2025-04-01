@@ -15,6 +15,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Blog.Infrastructure.Entities;
+using Blog.Core.Constants;
+using IdentityConstants = Microsoft.AspNetCore.Identity.IdentityConstants;
 
 namespace Blog.Web.Areas.Identity.Pages.Account
 {
@@ -54,6 +56,13 @@ namespace Blog.Web.Areas.Identity.Pages.Account
         /// </summary>
         [TempData]
         public string ErrorMessage { get; set; }
+
+        /// <summary>
+        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        [TempData]
+        public string StatusMessage { get; set; }
 
         /// <summary>
         ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -126,6 +135,16 @@ namespace Blog.Web.Areas.Identity.Pages.Account
                 {
                     _logger.LogWarning("User account locked out.");
                     return RedirectToPage("./Lockout");
+                }
+                if (result.IsNotAllowed)
+                {
+                    // This happens when email is not confirmed
+                    var user = await _signInManager.UserManager.FindByEmailAsync(Input.Email);
+                    if (user != null && !await _signInManager.UserManager.IsEmailConfirmedAsync(user))
+                    {
+                        ModelState.AddModelError(string.Empty, Blog.Core.Constants.IdentityConstants.Registration.EmailNotConfirmedMessage);
+                        return Page();
+                    }
                 }
                 else
                 {

@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Blog.Infrastructure.Entities;
+using Blog.Core.Constants;
 
 namespace Blog.Web.Areas.Identity.Pages.Account
 {
@@ -156,13 +157,13 @@ namespace Blog.Web.Areas.Identity.Pages.Account
                     var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
                     code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
                     var callbackUrl = Url.Page(
-                        "/Account/ConfirmEmail",
+                        EmailConstants.EmailConfirmationPage,
                         pageHandler: null,
-                        values: new { area = "Identity", userId = userId, code = code, returnUrl = returnUrl },
+                        values: new { area = EmailConstants.IdentityArea, userId = userId, code = code, returnUrl = returnUrl },
                         protocol: Request.Scheme);
 
-                    await _emailSender.SendEmailAsync(Input.Email, Blog.Core.Constants.IdentityConstants.Registration.EmailConfirmationSubject,
-                        string.Format(Blog.Core.Constants.IdentityConstants.Registration.EmailConfirmationMessage, HtmlEncoder.Default.Encode(callbackUrl)));
+                    await _emailSender.SendEmailAsync(Input.Email, EmailConstants.EmailConfirmationSubject,
+                        string.Format(EmailConstants.EmailConfirmationTemplate, HtmlEncoder.Default.Encode(callbackUrl)));
                     if (_userManager.Options.SignIn.RequireConfirmedAccount)
                     {
                         return RedirectToPage("RegisterConfirmation", new { email = Input.Email, returnUrl = returnUrl });

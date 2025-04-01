@@ -33,6 +33,8 @@ namespace Blog.Core.Constants
             public const string EmailConfirmationSubject = "Confirm your email";
             public const string EmailConfirmationMessage = "Please confirm your account by <a href='{0}'>clicking here</a>.";
             public const string AccountCreatedMessage = "User created a new account with password.";
+            public const string EmailNotConfirmedMessage = "You must confirm your email before logging in. Please check your email inbox.";
+            public const string EmailConfirmedMessage = "Your email has been confirmed. You can now log in.";
             public const int MaxPasswordLength = 100;
             public const int MinPasswordLength = 6;
             public const string PasswordLengthError = "The {0} must be at least {2} and at max {1} characters long.";
@@ -58,4 +60,4 @@ namespace Blog.Core.Constants
             public const int MinPasswordLength = 6;
         }
     }
-    }
+}
