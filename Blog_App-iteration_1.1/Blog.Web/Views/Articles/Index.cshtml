@@ -43,11 +43,11 @@
                 <input type="text" name="searchTerm" class="form-control" placeholder="Search articles..." 
                        value="@Context.Request.Query["searchTerm"]" />
                 <select name="dateFilterStr" class="form-select" style="width: auto;">
-                    <option value="All" @(ViewBag.CurrentDateFilter == "All" ? "selected" : "")>All Time</option>
-                    <option value="Today" @(ViewBag.CurrentDateFilter == "Today" ? "selected" : "")>Today</option>
-                    <option value="Week" @(ViewBag.CurrentDateFilter == "Week" ? "selected" : "")>This Week</option>
-                    <option value="Month" @(ViewBag.CurrentDateFilter == "Month" ? "selected" : "")>This Month</option>
-                    <option value="Year" @(ViewBag.CurrentDateFilter == "Year" ? "selected" : "")>This Year</option>
+                    <option value="All">All Time</option>
+                    <option value="Today">Today</option>
+                    <option value="Week">This Week</option>
+                    <option value="Month">This Month</option>
+                    <option value="Year">This Year</option>
                 </select>
  
                 <button type="submit" class="btn btn-outline-primary">
@@ -136,4 +136,21 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+    <script>
+        // Set the selected date filter option
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateFilterSelect = document.querySelector('select[name="dateFilterStr"]');
+            const currentFilter = '@ViewBag.CurrentDateFilter';
+            
+            if (currentFilter && dateFilterSelect) {
+                for (let i = 0; i < dateFilterSelect.options.length; i++) {
+                    if (dateFilterSelect.options[i].value === currentFilter) {
+                        dateFilterSelect.options[i].selected = true;
+                        break;
+                    }
+                }
+            }
+        });
+    </script>
 }

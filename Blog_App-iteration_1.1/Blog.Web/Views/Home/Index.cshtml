@@ -2,7 +2,269 @@
     ViewData["Title"] = "Home Page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="hero-section py-5 mb-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4">Share Your Ideas With The World</h1>
+                <p class="lead mb-4">Create, publish, and engage with content that matters to you. Join our community of writers and readers.</p>
+                <div class="d-flex gap-3">
+                    <a asp-controller="Articles" asp-action="Index" class="btn btn-primary btn-lg">
+                        <i class="bi bi-collection me-2"></i>Browse Articles
+                    </a>
+                    @if (!User.Identity.IsAuthenticated)
+                    {
+                        <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-outline-primary btn-lg">
+                            <i class="bi bi-person-plus me-2"></i>Join Now
+                        </a>
+                    }
+                    else if ((await UserManager.GetUserAsync(User)).CanWriteArticles)
+                    {
+                        <a asp-controller="Articles" asp-action="Create" class="btn btn-outline-primary btn-lg">
+                            <i class="bi bi-pencil-square me-2"></i>Start Writing
+                        </a>
+                    }
+                </div>
+            </div>
+            <div class="col-lg-6 d-none d-lg-block">
+                <img src="https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=2070" alt="Blog Platform" class="img-fluid rounded shadow-lg" />
+            </div>
+        </div>
+    </div>
 </div>
+
+<div class="features-section py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center mb-5">Platform Features</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon mb-3">
+                            <i class="bi bi-pencil-square text-primary" style="font-size: 2.5rem;"></i>
+                        </div>
+                        <h3 class="card-title h4">Create Content</h3>
+                        <p class="card-text">Write articles with rich formatting, upload images, and share your knowledge with our community.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon mb-3">
+                            <i class="bi bi-graph-up text-primary" style="font-size: 2.5rem;"></i>
+                        </div>
+                        <h3 class="card-title h4">Track Engagement</h3>
+                        <p class="card-text">Monitor how readers interact with your content through comments, upvotes, and analytics.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon mb-3">
+                            <i class="bi bi-people text-primary" style="font-size: 2.5rem;"></i>
+                        </div>
+                        <h3 class="card-title h4">Grow Community</h3>
+                        <p class="card-text">Connect with like-minded individuals, collaborate on ideas, and build your network.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="recent-articles py-5">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0">Recent Articles</h2>
+            <a asp-controller="Articles" asp-action="Index" class="btn btn-outline-primary">
+                View All <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+        
+        <div class="row" id="recent-articles-container">
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="cta-section py-5 bg-primary text-white text-center">
+    <div class="container">
+        <h2 class="mb-4">Ready to share your story?</h2>
+        <p class="lead mb-4">Join thousands of writers who have already published their work on our platform.</p>
+        @if (!User.Identity.IsAuthenticated)
+        {
+            <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-light btn-lg">
+                <i class="bi bi-person-plus me-2"></i>Sign Up Today
+            </a>
+        }
+        else if ((await UserManager.GetUserAsync(User)).CanWriteArticles)
+        {
+            <a asp-controller="Articles" asp-action="Create" class="btn btn-light btn-lg">
+                <i class="bi bi-pencil-square me-2"></i>Create New Article
+            </a>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Load recent articles on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/articles/recent')
+                .then(response => {
+                    // If API doesn't exist, use ViewBag data or show placeholders
+                    if (!response.ok) {
+                        const latestArticles = @Html.Raw(Json.Serialize(ViewBag.LatestArticles));
+                        if (latestArticles && latestArticles.length > 0) {
+                            displayArticlesFromViewBag(latestArticles);
+                        } else {
+                            displayPlaceholderArticles();
+                        }
+                        return;
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.length > 0) {
+                        displayArticles(data);
+                    } else {
+                        // Try ViewBag data as fallback
+                        const latestArticles = @Html.Raw(Json.Serialize(ViewBag.LatestArticles));
+                        if (latestArticles && latestArticles.length > 0) {
+                            displayArticlesFromViewBag(latestArticles);
+                        } else {
+                            displayPlaceholderArticles();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching articles:', error);
+                    // Try ViewBag data as fallback
+                    const latestArticles = @Html.Raw(Json.Serialize(ViewBag.LatestArticles));
+                    if (latestArticles && latestArticles.length > 0) {
+                        displayArticlesFromViewBag(latestArticles);
+                    } else {
+                        displayPlaceholderArticles();
+                    }
+                });
+        });
+        
+        function displayArticlesFromViewBag(articles) {
+            const container = document.getElementById('recent-articles-container');
+            container.innerHTML = '';
+            
+            articles.forEach(article => {
+                container.innerHTML += `
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100">
+                            ${article.featuredImage ? 
+                                `<img src="${article.featuredImage}" class="card-img-top" alt="${article.title}">` : 
+                                `<div class="card-img-top bg-light text-center py-5"><i class="bi bi-journal-text text-secondary" style="font-size: 3rem;"></i></div>`
+                            }
+                            <div class="card-body">
+                                <h5 class="card-title">${article.title}</h5>
+                                <p class="card-text text-truncate">${article.intro || ''}</p>
+                                <p class="text-muted small mb-2">
+                                    <i class="bi bi-person-circle me-1"></i> ${article.author || 'Anonymous'}
+                                    <span class="mx-2">•</span>
+                                    <i class="bi bi-chat-left-text me-1"></i> ${article.commentCount} comments
+                                </p>
+                            </div>
+                            <div class="card-footer bg-transparent border-top-0">
+                                <a href="/Articles/${article.id}" class="btn btn-sm btn-outline-primary">Read More</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        function displayArticles(articles) {
+            const container = document.getElementById('recent-articles-container');
+            container.innerHTML = '';
+            
+            articles.forEach(article => {
+                container.innerHTML += `
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100">
+                            ${article.featuredImage ? 
+                                `<img src="${article.featuredImage}" class="card-img-top" alt="${article.title}">` : 
+                                `<div class="card-img-top bg-light text-center py-5"><i class="bi bi-journal-text text-secondary" style="font-size: 3rem;"></i></div>`
+                            }
+                            <div class="card-body">
+                                <h5 class="card-title">${article.title}</h5>
+                                <p class="card-text text-truncate">${article.intro || ''}</p>
+                                <p class="text-muted small mb-2">
+                                    <i class="bi bi-person-circle me-1"></i> ${article.author || 'Anonymous'}
+                                    <span class="mx-2">•</span>
+                                    <i class="bi bi-chat-left-text me-1"></i> ${article.commentCount} comments
+                                </p>
+                            </div>
+                            <div class="card-footer bg-transparent border-top-0">
+                                <a href="/Articles/${article.id}" class="btn btn-sm btn-outline-primary">Read More</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        function displayPlaceholderArticles() {
+            const container = document.getElementById('recent-articles-container');
+            container.innerHTML = '';
+            
+            // Create 3 placeholder articles
+            for (let i = 0; i < 3; i++) {
+                container.innerHTML += `
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100">
+                            <div class="card-img-top bg-light text-center py-5">
+                                <i class="bi bi-journal-text text-secondary" style="font-size: 3rem;"></i>
+                            </div>
+                            <div class="card-body">
+                                <h5 class="card-title">Example Article ${i + 1}</h5>
+                                <p class="card-text">This is a placeholder for article content. Click below to browse real articles.</p>
+                            </div>
+                            <div class="card-footer bg-transparent border-top-0">
+                                <a href="/Articles" class="btn btn-sm btn-outline-primary">Browse Articles</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    </script>
+}
+
+@section Styles {
+    <style>
+        .hero-section {
+            background-color: rgba(106, 76, 147, 0.05);
+        }
+        
+        .feature-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: rgba(106, 76, 147, 0.1);
+        }
+        
+        .features-section .card:hover {
+            border-bottom: 3px solid var(--primary-color);
+        }
+        
+        .cta-section {
+            background-color: var(--primary-color);
+            background-image: linear-gradient(135deg, var(--primary-color) 0%, #9b6dce 100%);
+        }
+    </style>
+}

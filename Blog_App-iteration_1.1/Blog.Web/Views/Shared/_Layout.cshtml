@@ -3,64 +3,76 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Blog.Web</title>
+    <title>@ViewData["Title"] - Blog Platform</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Blog.Web.styles.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Blog App</a>
+        <nav class="navbar navbar-expand-sm navbar-dark mb-4">
+            <div class="container">
+                <a class="navbar-brand fw-bold" asp-area="" asp-controller="Home" asp-action="Index">
+                    <i class="bi bi-journal-richtext me-2"></i>Blog Platform
+                </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
-
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Articles" asp-action="Index">Articles</a>
+                            <a class="nav-link" asp-area="" asp-controller="Articles" asp-action="Index">
+                                <i class="bi bi-collection me-1"></i>Articles
+                            </a>
                         </li>
                         @if (User.Identity.IsAuthenticated)
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Permissions" asp-action="Index">Permissions</a>
+                                <a class="nav-link" asp-area="" asp-controller="Permissions" asp-action="Index">
+                                    <i class="bi bi-shield-check me-1"></i>Permissions
+                                </a>
                             </li>
                             @if ((await UserManager.GetUserAsync(User)).CanWriteArticles)
                             {
                                 <li class="nav-item">
-                                    <a class="nav-link text-dark" asp-area="" asp-controller="Articles" asp-action="Create">Create Article</a>
+                                    <a class="nav-link" asp-area="" asp-controller="Articles" asp-action="Create">
+                                        <i class="bi bi-pencil-square me-1"></i>Create Article
+                                    </a>
                                 </li>
                             }
                             @if ((await UserManager.GetUserAsync(User)).IsAdmin)
                             {
                                 <li class="nav-item">
-                                    <a class="nav-link text-dark" asp-area="" asp-controller="Admin" asp-action="Reports">
-                                        <i class="bi bi-flag"></i> Reported Comments
+                                    <a class="nav-link" asp-area="" asp-controller="Admin" asp-action="Reports">
+                                        <i class="bi bi-flag me-1"></i>Reported Comments
                                     </a>
                                 </li>
                             }
                         }
-
                     </ul>
                     <partial name="_LoginPartial" />
                 </div>
             </div>
         </nav>
     </header>
+    
     <div class="container">
-        <main role="main" class="pb-3">
+        <main role="main" class="pb-5">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
+    <footer class="footer text-center py-4 mt-5">
         <div class="container">
-            &copy; 2025 - Blog.Web - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            <div class="row">
+                <div class="col-md-12">
+                    <p class="mb-0">&copy; @DateTime.Now.Year - Blog Platform - All rights reserved</p>
+                </div>
+            </div>
         </div>
     </footer>
     
