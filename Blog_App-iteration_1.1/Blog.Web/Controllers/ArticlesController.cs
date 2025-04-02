@@ -56,10 +56,8 @@ namespace Blog.Web.Controllers
                 var recentlyCommentedArticles = await _articleService.GetRecentlyCommentedArticlesAsync();
                 ViewBag.RecentlyCommentedArticles = recentlyCommentedArticles;
 
-                // Get search results if search term is provided
-                var searchResults = !string.IsNullOrEmpty(searchTerm) ?
-                    await _articleService.GetPublishedArticlesAsync(searchTerm, dateFilter, sortBy) :
-                    latestArticles;
+                // Always apply date filter regardless of search term presence
+                var searchResults = await _articleService.GetPublishedArticlesAsync(searchTerm, dateFilter, sortBy);
 
                 ViewBag.CurrentDateFilter = dateFilterStr; // Keep the current filter for the view
                 ViewBag.CurrentSortBy = sortBy; // Keep the current sort for the view
